@@ -6,6 +6,37 @@ from io import BytesIO
 from PIL import Image, ImageTk
 from misc import send_to_grok_ocr
 import traceback
+from pynput import keyboard, mouse
+
+class F8RegionCapture:
+    def __init__(self):
+        self.coords = []
+        self.listener = keyboard.Listener(on_press=self.on_key)
+        self.mouse_controller = mouse.Controller()
+
+    def on_key(self, key):
+        if key == keyboard.Key.f8:
+            pos = self.mouse_controller.position
+            print(f"📌 Point recorded: {pos}")
+            self.coords.append(pos)
+            if len(self.coords) == 2:
+                self.listener.stop()
+
+    def capture(self):
+        print("⌨️  Press F8 twice to define region...")
+        self.listener.start()
+        self.listener.join()
+
+        (x1, y1), (x2, y2) = self.coords
+        x1, x2 = sorted([x1, x2])
+        y1, y2 = sorted([y1, y2])
+        width = x2 - x1
+        height = y2 - y1
+
+        print(f"📸 Capturing region: ({x1}, {y1}, {width}, {height})")
+        img = pyautogui.screenshot(region=(x1, y1, width, height))
+        return img, {"start": (x1, y1), "end": (x2, y2)}
+
 
 def open_ocr_window(parent, coords_callback, variables):
     """Open the OCR settings window."""
@@ -20,8 +51,7 @@ def open_ocr_window(parent, coords_callback, variables):
 
     Label(ocr_window, text="Define OCR Area").pack(pady=5)
     preview_label = Label(ocr_window, text="No area selected yet")
-    Button(ocr_window, text="Select Area", command=lambda: start_ocr_selection(ocr_window, preview_label)).pack(pady=5)
-
+    Button(ocr_window, text="Select Area (F8 x2)", command=lambda: start_ocr_selection_f8(ocr_window, preview_label)).pack(pady=5)
     preview_label.pack(pady=5)
 
     Label(ocr_window, text="Wait Time (seconds):").pack(pady=5)
@@ -35,50 +65,22 @@ def open_ocr_window(parent, coords_callback, variables):
 
     Button(ocr_window, text="OK", command=lambda: save_ocr_event(ocr_window, wait_time_entry, variable_entry, coords_callback, variables)).pack(pady=10)
 
-def start_ocr_selection(ocr_window, preview_label):
-    """Enable OCR area selection on the screen."""
-    selection_window = Toplevel(ocr_window)
-    selection_window.attributes("-fullscreen", True)
-    selection_window.attributes("-alpha", 0.3)
-    selection_window.configure(bg="gray")
 
-    canvas = tk.Canvas(selection_window, bg="gray", highlightthickness=0)
-    canvas.pack(fill=tk.BOTH, expand=True)
+def start_ocr_selection_f8(ocr_window, preview_label):
+    """Use F8RegionCapture to select OCR area."""
+    capture_tool = F8RegionCapture()
+    img, coords = capture_tool.capture()
+    update_ocr_preview(img, preview_label)
+    ocr_window.coords = coords
 
-    start_pos = [None]
-    rect = [None]
 
-    def on_mouse_press(event):
-        start_pos[0] = (event.x, event.y)
-        rect[0] = canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="white", width=2)
-
-    def on_mouse_move(event):
-        if start_pos[0]:
-            canvas.coords(rect[0], start_pos[0][0], start_pos[0][1], event.x, event.y)
-
-    def on_mouse_release(event):
-        if start_pos[0]:
-            end_x, end_y = event.x, event.y
-            coords = {"start": start_pos[0], "end": (end_x, end_y)}
-            print(f"Selected area: {coords}")
-            selection_window.destroy()
-            update_ocr_preview(coords, preview_label)
-            ocr_window.coords = coords
-
-    canvas.bind("<ButtonPress-1>", on_mouse_press)
-    canvas.bind("<B1-Motion>", on_mouse_move)
-    canvas.bind("<ButtonRelease-1>", on_mouse_release)
-
-def update_ocr_preview(coords, preview_label):
+def update_ocr_preview(img, preview_label):
     """Update the preview of the selected OCR area."""
-    x1, y1 = coords["start"]
-    x2, y2 = coords["end"]
-    width, height = x2 - x1, y2 - y1
-    screenshot = pyautogui.screenshot(region=(x1, y1, width, height))
-    screenshot = screenshot.resize((300, 200), Image.LANCZOS)
+    screenshot = img.resize((300, 200), Image.LANCZOS)
     preview_image = ImageTk.PhotoImage(screenshot)
     preview_label.config(image=preview_image, text="")
     preview_label.image = preview_image
+
 
 def save_ocr_event(window, wait_time_entry, variable_entry, coords_callback, variables):
     """Save the OCR event without processing it immediately."""
@@ -89,12 +91,11 @@ def save_ocr_event(window, wait_time_entry, variable_entry, coords_callback, var
             coords = window.coords
             event = f"OCR Search - Area: {coords}, Wait: {wait_time}s, Variable: {variable_name}"
             coords_callback(event)
-            print(f"Added OCR event: {event}")
-            # OCR processing removed, handled in execute_macro_logic
+            print(f"✅ Added OCR event: {event}")
         window.destroy()
     except ValueError:
-        print("Invalid wait time, please enter a number")
-
+        print("❌ Invalid wait time, please enter a number")
+        
 def open_if_window(parent, coords_callback, variables):
     """Open the If condition settings window."""
     if_window = Toplevel(parent)
