@@ -1,4 +1,4 @@
-pyautogui
-Pillow>=9.2.0
 pynput
-requests
+pyautogui
+Pillow
+opencv-python-headless
