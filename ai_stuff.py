@@ -8,7 +8,7 @@ from misc import send_to_grok_ocr
 import traceback
 from pynput import keyboard, mouse
 
-class F8RegionCapture:
+class RegionCapture:
     def __init__(self):
         self.coords = []
         self.listener = keyboard.Listener(on_press=self.on_key)
@@ -68,7 +68,7 @@ def open_ocr_window(parent, coords_callback, variables):
 
 def start_ocr_selection_f8(ocr_window, preview_label):
     """Use F8RegionCapture to select OCR area."""
-    capture_tool = F8RegionCapture()
+    capture_tool = RegionCapture()
     img, coords = capture_tool.capture()
     update_ocr_preview(img, preview_label)
     ocr_window.coords = coords
@@ -378,74 +378,28 @@ def open_pattern_window(parent, coords_callback):
     Button(pattern_window, text="OK", command=save_pattern_event).pack(pady=10)
     
 def start_pattern_selection(pattern_window, preview_label):
-    """Enable pattern area selection on the screen."""
-    selection_window = Toplevel(pattern_window)
-    selection_window.attributes("-fullscreen", True)
-    selection_window.attributes("-alpha", 0.3)
-    selection_window.configure(bg="gray")
+    """Enable pattern area selection using F8 keys."""
+    capture_tool = RegionCapture()
+    img, coords = capture_tool.capture()
+    update_pattern_preview_image(img, preview_label)
+    pattern_window.pattern_coords = coords
+    print(f"Set pattern_window.pattern_coords: {coords}")
 
-    canvas = tk.Canvas(selection_window, bg="gray", highlightthickness=0)
-    canvas.pack(fill=tk.BOTH, expand=True)
-
-    start_pos = [None]
-    rect = [None]
-
-    def on_mouse_press(event):
-        start_pos[0] = (event.x, event.y)
-        rect[0] = canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="white", width=2)
-
-    def on_mouse_move(event):
-        if start_pos[0]:
-            canvas.coords(rect[0], start_pos[0][0], start_pos[0][1], event.x, event.y)
-
-    def on_mouse_release(event):
-        if start_pos[0]:
-            end_x, end_y = event.x, event.y
-            coords = {"start": (start_pos[0][0], start_pos[0][1]), "end": (end_x, end_y)}
-            print(f"Selected pattern area: {coords}")
-            selection_window.destroy()
-            update_pattern_preview(coords, preview_label)
-            pattern_window.pattern_coords = coords
-            print(f"Set pattern_window.pattern_coords: {pattern_window.pattern_coords}")
-
-    canvas.bind("<ButtonPress-1>", on_mouse_press)
-    canvas.bind("<B1-Motion>", on_mouse_move)
-    canvas.bind("<ButtonRelease-1>", on_mouse_release)
 
 def start_search_area_selection(pattern_window, preview_label):
-    """Enable search area selection on the screen."""
-    selection_window = Toplevel(pattern_window)
-    selection_window.attributes("-fullscreen", True)
-    selection_window.attributes("-alpha", 0.3)
-    selection_window.configure(bg="gray")
+    """Enable search area selection using F8 keys."""
+    capture_tool = RegionCapture()
+    img, coords = capture_tool.capture()
+    update_pattern_preview_image(img, preview_label)
+    pattern_window.search_coords = coords
+    print(f"Set pattern_window.search_coords: {coords}")
 
-    canvas = tk.Canvas(selection_window, bg="gray", highlightthickness=0)
-    canvas.pack(fill=tk.BOTH, expand=True)
-
-    start_pos = [None]
-    rect = [None]
-
-    def on_mouse_press(event):
-        start_pos[0] = (event.x, event.y)
-        rect[0] = canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="yellow", width=2)
-
-    def on_mouse_move(event):
-        if start_pos[0]:
-            canvas.coords(rect[0], start_pos[0][0], start_pos[0][1], event.x, event.y)
-
-    def on_mouse_release(event):
-        if start_pos[0]:
-            end_x, end_y = event.x, event.y
-            coords = {"start": (start_pos[0][0], start_pos[0][1]), "end": (end_x, end_y)}
-            print(f"Selected search area: {coords}")
-            selection_window.destroy()
-            update_pattern_preview(coords, preview_label)
-            pattern_window.search_coords = coords
-            print(f"Set pattern_window.search_coords: {pattern_window.search_coords}")
-
-    canvas.bind("<ButtonPress-1>", on_mouse_press)
-    canvas.bind("<B1-Motion>", on_mouse_move)
-    canvas.bind("<ButtonRelease-1>", on_mouse_release)
+def update_pattern_preview_image(img, preview_label):
+    """Update the preview label with an image."""
+    resized = img.resize((300, 200), Image.LANCZOS)
+    preview_image = ImageTk.PhotoImage(resized)
+    preview_label.config(image=preview_image, text="")
+    preview_label.image = preview_image
 
 def open_wait_window(parent, coords_callback):
     """Open the wait event settings window."""
