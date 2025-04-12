@@ -10,3 +10,8 @@ AI-powered macro automation tool with advanced features like OCR, pattern recogn
 1. Clone the repo: `git clone <repo-url>`
 2. Install dependencies: `pip install -r requirements.txt`
 3. Run: `python main.py`
+
+For Ubuntu
+sudo apt update
+sudo apt install python3-tk
+pip install -r requirements.txt
