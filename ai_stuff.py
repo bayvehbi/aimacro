@@ -83,18 +83,31 @@ def update_ocr_preview(img, preview_label):
 
 
 def save_ocr_event(window, wait_time_entry, variable_entry, coords_callback, variables):
-    """Save the OCR event without processing it immediately."""
+    """Save the OCR event only if all fields are valid."""
     try:
         wait_time = float(wait_time_entry.get())
         variable_name = variable_entry.get().strip()
-        if hasattr(window, 'coords'):
-            coords = window.coords
-            event = f"OCR Search - Area: {coords}, Wait: {wait_time}s, Variable: {variable_name}"
-            coords_callback(event)
-            print(f"✅ Added OCR event: {event}")
+
+        if not variable_name:
+            print("Variable name cannot be empty!")
+            tk.messagebox.showerror("Missing Variable Name", "Please provide a variable name before saving.")
+            return
+
+        if not hasattr(window, 'coords'):
+            print("No OCR area selected.")
+            tk.messagebox.showerror("Missing Area", "Please select an OCR area first.")
+            return
+
+        coords = window.coords
+        event = f"OCR Search - Area: {coords}, Wait: {wait_time}s, Variable: {variable_name}"
+        coords_callback(event)
+        print(f"Added OCR event: {event}")
         window.destroy()
+
     except ValueError:
-        print("❌ Invalid wait time, please enter a number")
+        print("Invalid wait time, please enter a number")
+        tk.messagebox.showerror("Invalid Input", "Please enter a valid number for wait time.")
+
         
 def open_if_window(parent, coords_callback, variables):
     """Open the If condition settings window."""

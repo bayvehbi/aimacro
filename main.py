@@ -12,19 +12,25 @@ def load_api_settings():
         "start_macro_record_shortcut": "r",
         "stop_macro_record_shortcut": "s",
         "start_macro_run_shortcut": "p",
-        "stop_macro_run_shortcut": "q"
+        "stop_macro_run_shortcut": "q",
+        "chatgpt_api_key": "",
+        "grok_api_key": ""
     }
 
-    # Create storage directory if it doesn’t exist
     os.makedirs("storage", exist_ok=True)
 
-    # Load existing settings or create default ones
     try:
         if os.path.exists(settings_file):
             with open(settings_file, "r") as f:
                 settings = json.load(f)
-                print(f"Settings loaded from {settings_file}: {settings}")
-                return settings
+            # Ensure all keys exist (for backward compatibility)
+            for key, value in default_settings.items():
+                if key not in settings:
+                    settings[key] = value
+            with open(settings_file, "w") as f:
+                json.dump(settings, f, indent=4)
+            print(f"Settings loaded from {settings_file}: {settings}")
+            return settings
         else:
             with open(settings_file, "w") as f:
                 json.dump(default_settings, f, indent=4)
@@ -92,27 +98,44 @@ class MainApplication(tk.Tk):
             print("Always on Top disabled")
 
     def show_settings_dialog(self):
-        """Open the shortcut settings dialog."""
+        """Show a dialog for editing shortcuts and API keys."""
         dialog = tk.Toplevel(self)
-        dialog.title("Shortcut Settings")
-        dialog.geometry("300x200")
+        dialog.title("Shortcut & API Settings")
+        dialog.geometry("400x350")
+        dialog.attributes("-topmost", True)
 
-        self.shortcut_entries = {}
-        actions = ["start_recording", "stop_recording", "start_macro", "stop_macro"]
-        for i, action in enumerate(actions):
-            tk.Label(dialog, text=f"{action.replace('_', ' ').title()} Shortcut:").grid(row=i, column=0, padx=5, pady=5)
-            entry = tk.Entry(dialog)
-            entry.grid(row=i, column=1, padx=5, pady=5)
-            default_key = {
-                "start_recording": self.settings.get("start_macro_record_shortcut", "r"),
-                "stop_recording": self.settings.get("stop_macro_record_shortcut", "s"),
-                "start_macro": self.settings.get("start_macro_run_shortcut", "p"),
-                "stop_macro": self.settings.get("stop_macro_run_shortcut", "q")
-            }[action]
-            entry.insert(0, default_key)
-            self.shortcut_entries[action] = entry
+        entries = {}
+        row = 0
 
-        tk.Button(dialog, text="Save", command=lambda: self.save_shortcuts(dialog)).grid(row=len(actions), column=0, columnspan=2, pady=10)
+        settings_keys = [
+            ("start_macro_record_shortcut", "Start Macro Record Shortcut"),
+            ("stop_macro_record_shortcut", "Stop Macro Record Shortcut"),
+            ("start_macro_run_shortcut", "Start Macro Run Shortcut"),
+            ("stop_macro_run_shortcut", "Stop Macro Run Shortcut"),
+            ("chatgpt_api_key", "OpenAI API Key"),
+            ("grok_api_key", "Grok API Key"),
+        ]
+
+        for key, label in settings_keys:
+            tk.Label(dialog, text=label + ":").grid(row=row, column=0, sticky="e", padx=5, pady=5)
+
+            entry = tk.Entry(dialog, width=30, show="")
+            entry.insert(0, self.settings.get(key, ""))
+            entry.grid(row=row, column=1, padx=5, pady=5)
+            entries[key] = entry
+            row += 1
+
+        def save_and_close():
+            for key, entry in entries.items():
+                self.settings[key] = entry.get().strip()
+            with open(os.path.join("storage", "settings.json"), "w") as f:
+                json.dump(self.settings, f, indent=4)
+            print("🔧 Settings saved.")
+            dialog.destroy()
+
+        tk.Button(dialog, text="Save", command=save_and_close).grid(row=row, column=0, columnspan=2, pady=15)
+        
+
 
     def save_shortcuts(self, dialog):
         """Save shortcut settings and apply them to Page1."""
