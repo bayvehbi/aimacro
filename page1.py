@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, Checkbutton
+from tkinter import ttk, Entry, StringVar, Frame
 import os
 from monitor_utils import MacroRecorder, ShortcutHandler
 import time
@@ -22,6 +22,7 @@ class Page1(tk.Frame):
         self.stop_macro_key = master.master.settings.get("stop_macro_run_shortcut", "q")
         self.macro_recorder = MacroRecorder(self)
         self.shortcut_handler = ShortcutHandler(self)
+        self.run_times = 1
         self.setup_ui()
 
     def setup_ui(self):
@@ -83,8 +84,9 @@ class Page1(tk.Frame):
         self.wait_button = ttk.Button(button_frame, image=self.wait_icon, style="Custom.TButton", command=self.open_wait_window_wrapper)
         self.wait_button.pack(side=tk.LEFT, padx=5)
 
-        self.run_continuously_check = Checkbutton(button_frame, text="Run Continuously", variable=self.run_continuously)
-        self.run_continuously_check.pack(side=tk.LEFT, padx=5)
+        self.user_input = StringVar()
+        self.entry = tk.Entry(button_frame, textvariable=self.user_input, validate="key", validatecommand=(button_frame.register(self.only_digits), "%P"), width=4)
+        self.entry.pack(pady=10)
 
         # Set up Treeview frame
         treeview_frame = tk.Frame(self)
@@ -107,6 +109,7 @@ class Page1(tk.Frame):
 
     def start_macro(self):
         """Start the macro execution."""
+        self.run_times = self.user_input
         self.macro_recorder.start_macro()
         print("Treeview content before macro starts:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
@@ -174,3 +177,7 @@ class Page1(tk.Frame):
     def open_wait_window_wrapper(self):
         """Open the wait event window (duplicate method, kept for compatibility)."""
         open_wait_window(self, self.add_event_to_treeview)
+
+    def only_digits(self, value):
+        """Returns only digits."""
+        return value.isdigit() or value == ""

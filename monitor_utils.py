@@ -45,6 +45,7 @@ class MacroRecorder:
 
     def start_macro(self):
         """Start executing the recorded macro."""
+        print(f"user input {self.page1.run_times.get()}")
         if not self.page1.running:
             self.page1.running = True
             self.page1.run_button.config(state="disabled")
@@ -62,16 +63,18 @@ class MacroRecorder:
         print("Macro stopped")
 
     def execute_macro(self):
-        """Execute the recorded macro events."""
+        """Execute the recorded macro event s."""
         from misc import execute_macro_logic_wrapper as execute_macro_logic
         self.events = [self.page1.left_treeview.item(item)["text"] for item in self.page1.left_treeview.get_children()]
         print("self.events content:", self.events)
         current_index = 0
+        run_count = 1
         previous_timestamp = None
         while self.page1.running and current_index < len(self.events):
             action = self.events[current_index]
             current_index, previous_timestamp = execute_macro_logic(action, self.page1, current_index, self.page1.variables, previous_timestamp)
-            if self.page1.run_continuously.get() and current_index >= len(self.events):
+            if int(self.page1.run_times.get()) > run_count and current_index >= len(self.events):
+                run_count += 1
                 current_index = 0
                 previous_timestamp = None  # Reset timestamp for continuous run
         self.page1.running = False
