@@ -73,7 +73,7 @@ class MacroRecorder:
         while self.page1.running and current_index < len(self.events):
             action = self.events[current_index]
             current_index, previous_timestamp = execute_macro_logic(action, self.page1, current_index, self.page1.variables, previous_timestamp)
-            if int(self.page1.run_times.get()) > run_count and current_index >= len(self.events):
+            if int(self.page1.run_times.get() if self.page1.run_times.get() else 1) > run_count and current_index >= len(self.events):
                 run_count += 1
                 current_index = 0
                 previous_timestamp = None  # Reset timestamp for continuous run
