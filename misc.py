@@ -40,7 +40,7 @@ def send_notification(notification_name, page1):
     else:
         print(f"Notification '{notification_name}' not found in notifications: {page1.master.master.page2.notifications}")
 
-def send_to_grok_ocr(image_base64, settings):
+def send_to_grok_ocr(image_base64, settings, variable_content):
     """Extract text from an image using Grok OCR API."""
     api_key = settings.get("grok_api_key")
     if not api_key:
@@ -51,15 +51,16 @@ def send_to_grok_ocr(image_base64, settings):
     payload = {
         "model": "grok-2-vision-1212",
         "messages": [
-            {"role": "system", "content": "Analyze this image and extract the text. Return only the text, no additional response."},
+            {"role": "system", "content": "Analyze this image and extract the text. Return only the text, no additional response."  + variable_content},
             {"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
-                {"type": "text", "text": "Extract the text. Do not respond with anything else."}
+                {"type": "text", "text": "Extract the text. Do not respond with anything else. "}
             ]}
         ],
         "max_tokens": 500
     }
-
+    print("this is payload" + str(payload))
+    
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
@@ -71,10 +72,11 @@ def send_to_grok_ocr(image_base64, settings):
     except ValueError as e:
         return f"JSON parsing error: {str(e)}"
 
-def search_for_pattern(pattern_img_str, search_coords, settings, click_if_found=False, wait_time=0, threshold=0.7):
+def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, click_if_found=False, wait_time=0, threshold=0.7):
     """Search for a pattern in the specified screen area."""
+
     start_time = time.time()
-    while time.time() - start_time < wait_time:
+    while (page1 is None or page1.running) and time.time() - start_time < wait_time:
         try:
             print("Decoding base64 pattern image...")
             pattern_data = base64.b64decode(pattern_img_str)
@@ -97,7 +99,6 @@ def search_for_pattern(pattern_img_str, search_coords, settings, click_if_found=
                 screen = pyautogui.screenshot()
                 search_offset_x, search_offset_y = 0, 0
             print(f"Screen image captured, size: {screen.size}")
-
             print(f"Searching for pattern with confidence={threshold}, grayscale=True...")
             location = pyautogui.locate(pattern_img, screen, grayscale=True, confidence=threshold)
             if location:
@@ -111,6 +112,9 @@ def search_for_pattern(pattern_img_str, search_coords, settings, click_if_found=
                     print(f"Clicked at pattern center: ({center_x}, {center_y})")
                 return True
             else:
+                if page1 and not page1.running:
+                    print("Macro has been stopped. Exiting pattern search early.")
+                    return False
                 print(f"Pattern not found, retrying in 1 second... (Elapsed: {time.time() - start_time:.1f}s of {wait_time}s)")
                 time.sleep(1)
 
@@ -138,7 +142,7 @@ MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button.left pressed at: \((\d+), (
 MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button.left released at: \((\d+), (\d+)\)")
 MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button.right pressed at: \((\d+), (\d+)\)")
 MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button.right released at: \((\d+), (\d+)\)")
-OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+)")
+OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If (\w+) ([><=!]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 WAIT_PATTERN = re.compile(r"Wait: (\d+\.\d+)s")
@@ -258,7 +262,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     ocr_match = OCR_PATTERN.match(action)
     if ocr_match:
-        coords_str, wait_time, variable_name = ocr_match.groups()
+        coords_str, wait_time, variable_name, variable_content = ocr_match.groups()
         coords = eval(coords_str)
         wait_time = float(wait_time)
         x1, y1 = coords['start']
@@ -269,7 +273,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         screenshot.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
-        text = send_to_grok_ocr(img_str, page1.master.master.settings)
+        text = send_to_grok_ocr(img_str, page1.master.master.settings, variable_content)
         print(f"OCR Result: {text}")
 
         if variable_name:
@@ -298,9 +302,8 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             click_if_found = click_if_found == 'True'
 
             print("Calling search_for_pattern...")
-            pattern_found = search_for_pattern(img_str, search_coords, page1.master.master.settings, click_if_found, wait_time, threshold)
+            pattern_found = search_for_pattern(img_str, search_coords, page1.master.master.settings, page1=page1, click_if_found=click_if_found, wait_time=wait_time, threshold=threshold)
             print(f"search_for_pattern returned: {pattern_found}")
-
             target_checkpoint = succeed_checkpoint if pattern_found else fail_checkpoint
             print(f"Pattern {'found' if pattern_found else 'not found'}, going to '{target_checkpoint}'...")
 

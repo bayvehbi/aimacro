@@ -12,18 +12,17 @@ class RegionCapture:
     def __init__(self):
         self.coords = []
         self.listener = keyboard.Listener(on_press=self.on_key)
-        self.mouse_controller = mouse.Controller()
 
     def on_key(self, key):
         if key == keyboard.Key.f8:
-            pos = self.mouse_controller.position
-            print(f"📌 Point recorded: {pos}")
+            pos = pyautogui.position()
+            print(f"Point recorded: {pos}")
             self.coords.append(pos)
             if len(self.coords) == 2:
                 self.listener.stop()
 
     def capture(self):
-        print("⌨️  Press F8 twice to define region...")
+        print("Press F8 twice to define region...")
         self.listener.start()
         self.listener.join()
 
@@ -33,7 +32,7 @@ class RegionCapture:
         width = x2 - x1
         height = y2 - y1
 
-        print(f"📸 Capturing region: ({x1}, {y1}, {width}, {height})")
+        print(f"Capturing region: ({x1}, {y1}, {width}, {height})")
         img = pyautogui.screenshot(region=(x1, y1, width, height))
         return img, {"start": (x1, y1), "end": (x2, y2)}
 
@@ -54,6 +53,10 @@ def open_ocr_window(parent, coords_callback, variables):
     Button(ocr_window, text="Select Area (F8 x2)", command=lambda: start_ocr_selection_f8(ocr_window, preview_label)).pack(pady=5)
     preview_label.pack(pady=5)
 
+    Label(ocr_window, text="Define OCR content").pack(pady=5)
+    variable_message = Entry(ocr_window)
+    variable_message.pack(pady=5)
+
     Label(ocr_window, text="Wait Time (seconds):").pack(pady=5)
     wait_time_entry = Entry(ocr_window)
     wait_time_entry.insert(0, "5")
@@ -63,7 +66,7 @@ def open_ocr_window(parent, coords_callback, variables):
     variable_entry = Entry(ocr_window)
     variable_entry.pack(pady=5)
 
-    Button(ocr_window, text="OK", command=lambda: save_ocr_event(ocr_window, wait_time_entry, variable_entry, coords_callback, variables)).pack(pady=10)
+    Button(ocr_window, text="OK", command=lambda: save_ocr_event(ocr_window, wait_time_entry, variable_entry, variable_message, coords_callback, variables)).pack(pady=10)
 
 
 def start_ocr_selection_f8(ocr_window, preview_label):
@@ -82,11 +85,12 @@ def update_ocr_preview(img, preview_label):
     preview_label.image = preview_image
 
 
-def save_ocr_event(window, wait_time_entry, variable_entry, coords_callback, variables):
+def save_ocr_event(window, wait_time_entry, variable_entry, variable_message, coords_callback, variables):
     """Save the OCR event only if all fields are valid."""
     try:
         wait_time = float(wait_time_entry.get())
         variable_name = variable_entry.get().strip()
+        variable_content = variable_message.get()
 
         if not variable_name:
             print("Variable name cannot be empty!")
@@ -99,7 +103,7 @@ def save_ocr_event(window, wait_time_entry, variable_entry, coords_callback, var
             return
 
         coords = window.coords
-        event = f"OCR Search - Area: {coords}, Wait: {wait_time}s, Variable: {variable_name}"
+        event = f"OCR Search - Area: {coords}, Wait: {wait_time}s, Variable: {variable_name}, Variable Content: {variable_content}"
         coords_callback(event)
         print(f"Added OCR event: {event}")
         window.destroy()
@@ -291,7 +295,7 @@ def open_pattern_window(parent, coords_callback):
     succeed_send_var = tk.BooleanVar(value=False)
     succeed_check = tk.Checkbutton(succeed_frame, text="Send Notification", variable=succeed_send_var, command=lambda: toggle_notification('succeed'))
     succeed_check.grid(row=0, column=0, padx=5)
-    succeed_checkpoint_dropdown = ttk.Combobox(succeed_frame, values=["Next"] + list(parent.checkpoints.keys()), state="readonly")
+    succeed_checkpoint_dropdown = ttk.Combobox(succeed_frame, values=["Next", "Wait"] + list(parent.checkpoints.keys()), state="readonly")
     succeed_checkpoint_dropdown.set("Next")
     succeed_checkpoint_dropdown.grid(row=0, column=1, padx=5)
     succeed_notification_dropdown = ttk.Combobox(succeed_frame, values=["None"] + list(parent.master.master.page2.notifications.keys()), state="disabled")
@@ -308,7 +312,7 @@ def open_pattern_window(parent, coords_callback):
     fail_send_var = tk.BooleanVar(value=False)
     fail_check = tk.Checkbutton(fail_frame, text="Send Notification", variable=fail_send_var, command=lambda: toggle_notification('fail'))
     fail_check.grid(row=0, column=0, padx=5)
-    fail_checkpoint_dropdown = ttk.Combobox(fail_frame, values=["Next"] + list(parent.checkpoints.keys()), state="readonly")
+    fail_checkpoint_dropdown = ttk.Combobox(fail_frame, values=["Next", "Wait"] + list(parent.checkpoints.keys()), state="readonly")
     fail_checkpoint_dropdown.set("Next")
     fail_checkpoint_dropdown.grid(row=0, column=1, padx=5)
     fail_notification_dropdown = ttk.Combobox(fail_frame, values=["None"] + list(parent.master.master.page2.notifications.keys()), state="disabled")
@@ -353,30 +357,24 @@ def open_pattern_window(parent, coords_callback):
             threshold = float(threshold_entry.get())
 
             if not hasattr(pattern_window, 'pattern_coords') or pattern_window.pattern_coords is None:
-                print("Error: No pattern area selected or pattern_coords is None")
+                print("Error: No pattern area selected.")
                 pattern_window.destroy()
                 return
 
-            pattern_coords = pattern_window.pattern_coords
-            x1, y1 = pattern_coords["start"]
-            x2, y2 = pattern_coords["end"]
-            if x2 <= x1 or y2 <= y1:
-                print(f"Error: Invalid pattern coordinates - start: ({x1}, {y1}), end: ({x2}, {y2})")
+            img_str = getattr(pattern_window, 'pattern_image_base64', None)
+            if img_str is None:
+                print("Error: No pattern image captured.")
                 pattern_window.destroy()
                 return
 
-            screenshot = pyautogui.screenshot(region=(x1, y1, x2-x1, y2-y1))
-            buffered = BytesIO()
-            screenshot.save(buffered, format="PNG")
-            img_str = base64.b64encode(buffered.getvalue()).decode()
-            
             search_coords = getattr(pattern_window, 'search_coords', None)
             event = f"Search Pattern - Image: {img_str}, Search Area: {search_coords or 'Full Screen'}, Succeed Go To: {succeed_checkpoint}, Fail Go To: {fail_checkpoint}, Click: {click_if_found}, Wait: {wait_time}s, Threshold: {threshold}"
+            
             if succeed_send_var.get() and succeed_notification_dropdown.get() != "None":
                 event += f", Succeed Notification: {succeed_notification_dropdown.get()}"
             if fail_send_var.get() and fail_notification_dropdown.get() != "None":
                 event += f", Fail Notification: {fail_notification_dropdown.get()}"
-            
+
             coords_callback(event)
             print(f"Added Pattern event: {event}")
             pattern_window.destroy()
@@ -388,8 +386,9 @@ def open_pattern_window(parent, coords_callback):
             traceback.print_exc()
             pattern_window.destroy()
 
+
     Button(pattern_window, text="OK", command=save_pattern_event).pack(pady=10)
-    
+
 def start_pattern_selection(pattern_window, preview_label):
     """Enable pattern area selection using F8 keys."""
     capture_tool = RegionCapture()
@@ -397,6 +396,20 @@ def start_pattern_selection(pattern_window, preview_label):
     update_pattern_preview_image(img, preview_label)
     pattern_window.pattern_coords = coords
     print(f"Set pattern_window.pattern_coords: {coords}")
+
+    # Save the screenshot image as base64 immediately here
+    x1, y1 = coords["start"]
+    x2, y2 = coords["end"]
+    if x2 > x1 and y2 > y1:
+        screenshot = pyautogui.screenshot(region=(x1, y1, x2 - x1, y2 - y1))
+        buffered = BytesIO()
+        screenshot.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        pattern_window.pattern_image_base64 = img_str
+        print("Pattern image saved as base64.")
+    else:
+        pattern_window.pattern_image_base64 = None
+        print("Invalid coordinates for pattern image capture.")
 
 
 def start_search_area_selection(pattern_window, preview_label):
