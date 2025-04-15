@@ -5,7 +5,7 @@ from monitor_utils import MacroRecorder, ShortcutHandler
 import time
 from PIL import Image, ImageTk
 from draggable_treeview import DraggableTreeview
-from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_pattern_window, open_wait_window
+from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_pattern_window, open_wait_window#, open_change_window
 
 class Page1(tk.Frame):
     def __init__(self, master):
@@ -56,6 +56,7 @@ class Page1(tk.Frame):
         self.checkpoint_icon = resize_icon(os.path.join(icon_dir, "checkpoint.png"))
         self.pattern_icon = resize_icon(os.path.join(icon_dir, "pattern.png"))
         self.wait_icon = resize_icon(os.path.join(icon_dir, "wait.png"))
+        # self.change_icon = resize_icon(os.path.join(icon_dir, "change.png"))
 
         self.run_button = ttk.Button(button_frame, image=self.run_icon, style="Custom.TButton", command=self.start_macro)
         self.run_button.pack(side=tk.LEFT, padx=5)
@@ -84,7 +85,10 @@ class Page1(tk.Frame):
         self.wait_button = ttk.Button(button_frame, image=self.wait_icon, style="Custom.TButton", command=self.open_wait_window_wrapper)
         self.wait_button.pack(side=tk.LEFT, padx=5)
 
-        input_frame = tk.Frame(button_frame)
+        # self.check_change = ttk.Button(button_frame, image=self.change_icon, style="Custom.TButton", command=self.open_change_wrapper)
+        # self.check_change.pack(side=tk.LEFT, padx=5)
+
+        input_frame = ttk.Frame(button_frame)
         input_frame.pack(side=tk.LEFT, pady=10, padx=5)
 
         self.user_input = StringVar()
@@ -133,6 +137,10 @@ class Page1(tk.Frame):
     def open_pattern_window_wrapper(self):
         """Open the pattern search window."""
         open_pattern_window(self, self.add_event_to_treeview)
+
+    # def open_change_wrapper(self):
+    #     """Open the change detection window."""
+    #     open_change_window(self, self.add_event_to_treeview)
 
     def start_recording(self):
         """Start recording a new macro."""

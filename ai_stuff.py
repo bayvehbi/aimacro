@@ -283,6 +283,15 @@ def open_pattern_window(parent, coords_callback):
     Button(pattern_window, text="Select Search Area", command=lambda: start_search_area_selection(pattern_window, search_preview_label)).pack(pady=5)
     search_preview_label.pack(pady=5)
 
+    Label(pattern_window, text="Search change at area:").pack(pady=5)
+    make_change_detect = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        pattern_window,
+        text="Search change at area",
+        variable=make_change_detect,
+        command=lambda: on_change_detect_toggle()
+    ).pack(pady=5)
+
     Label(pattern_window, text="Define Pattern to Search").pack(pady=5)
     pattern_preview_label = Label(pattern_window, text="No pattern selected yet")
     Button(pattern_window, text="Select Pattern", command=lambda: start_pattern_selection(pattern_window, pattern_preview_label)).pack(pady=5)
@@ -346,6 +355,31 @@ def open_pattern_window(parent, coords_callback):
             fail_notification_dropdown.config(state="readonly")
         elif mode == 'fail':
             fail_notification_dropdown.config(state="disabled")
+
+    def on_change_detect_toggle():
+        if make_change_detect.get():
+            if not pattern_window.search_coords:
+
+                print("area not selected")
+            else:
+                print("area selected")
+                pattern_window.pattern_coords = pattern_window.search_coords
+                x1, y1 = pattern_window.search_coords["start"]
+                x2, y2 = pattern_window.search_coords["end"]
+                screenshot = pyautogui.screenshot(region=(x1, y1, x2 - x1, y2 - y1))
+                buffered = BytesIO()
+                screenshot.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                pattern_window.pattern_image_base64 = img_str
+                threshold_entry.delete(0, tk.END)
+                threshold_entry.insert(0, "0.99")
+                update_pattern_preview_image(screenshot, pattern_preview_label)
+
+
+            print("Change detection activated - pattern will be taken from search area.")
+        else:
+            print("Change detection deactivated - manual pattern selection required.")
+
 
     def save_pattern_event():
         """Save the pattern search event."""
@@ -424,7 +458,7 @@ def update_pattern_preview_image(img, preview_label):
     """Update the preview label with an image."""
     resized = img.resize((300, 200), Image.LANCZOS)
     preview_image = ImageTk.PhotoImage(resized)
-    preview_label.config(image=preview_image, text="")
+    preview_label.config(image=preview_image, text=preview_label)
     preview_label.image = preview_image
 
 def open_wait_window(parent, coords_callback):
