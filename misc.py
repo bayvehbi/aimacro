@@ -23,7 +23,6 @@ def send_notification(notification_name, page1):
                 "token": notification["token"],
                 "user": notification["user"],
                 "message": notification["message"],
-                "sound": "vibrate",
                 "priority": notification["priority"]
             }
             if notification["priority"] == 2:
@@ -51,14 +50,29 @@ def send_to_grok_ocr(image_base64, settings, variable_content):
     payload = {
         "model": "grok-2-vision-1212",
         "messages": [
-            {"role": "system", "content": "Analyze this image and extract the text. Return only the text, no additional response."  + variable_content},
+            {"role": "system", "content": ""  + variable_content},
             {"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
-                {"type": "text", "text": "Extract the text. Do not respond with anything else. "}
+                {"type": "text", "text": "" + variable_content}
             ]}
         ],
         "max_tokens": 500
     }
+
+    # url = "https://api.x.ai/v1/chat/completions"
+    # headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # payload = {
+    #     "model": "grok-2-vision-1212",
+    #     "messages": [
+    #         {"role": "system", "content": "Analyze this image and extract the text. Return only the text, no additional response."  + variable_content},
+    #         {"role": "user", "content": [
+    #             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
+    #             {"type": "text", "text": "Extract the text. Do not respond with anything else. "}
+    #         ]}
+    #     ],
+    #     "max_tokens": 500
+    # }
+
     print("this is payload" + str(payload))
     
     try:
@@ -177,6 +191,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     # Handle key press events
     key_press_match = KEY_PRESS_PATTERN.match(action)
     if key_press_match:
+        page1.dynamic_text.set(key_press_match)
         key = key_press_match.group(1)
         try:
             if key.startswith("'") and key.endswith("'"):  # Single character keys: 'a', 's', 'd'
@@ -196,6 +211,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     # Handle key release events
     key_release_match = KEY_RELEASE_PATTERN.match(action)
     if key_release_match:
+        page1.dynamic_text.set(key_release_match)
         key = key_release_match.group(1)
         try:
             if key.startswith("'") and key.endswith("'"):  # Single character keys: 'a', 's', 'd'
@@ -214,6 +230,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_move_match = MOUSE_MOVE_PATTERN.match(action)
     if mouse_move_match:
+        page1.dynamic_text.set(mouse_move_match)
         x, y = map(int, mouse_move_match.groups())
         mouse_controller.position = (x, y)
         print(f"Moved mouse to: ({x}, {y})")
@@ -221,6 +238,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_scroll_match = MOUSE_SCROLL_PATTERN.match(action)
     if mouse_scroll_match:
+        page1.dynamic_text.set(mouse_scroll_match)
         direction, x, y = mouse_scroll_match.groups()
         mouse_controller.position = (int(x), int(y))
         scroll_amount = 1 if direction == "up" else -1
@@ -230,6 +248,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_left_press_match = MOUSE_LEFT_PRESS_PATTERN.match(action)
     if mouse_left_press_match:
+        page1.dynamic_text.set(mouse_left_press_match)
         x, y = map(int, mouse_left_press_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.press(pynput_mouse.Button.left)
@@ -238,6 +257,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_left_release_match = MOUSE_LEFT_RELEASE_PATTERN.match(action)
     if mouse_left_release_match:
+        page1.dynamic_text.set(mouse_left_release_match)
         x, y = map(int, mouse_left_release_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.release(pynput_mouse.Button.left)
@@ -246,6 +266,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_right_press_match = MOUSE_RIGHT_PRESS_PATTERN.match(action)
     if mouse_right_press_match:
+        page1.dynamic_text.set(mouse_right_press_match)
         x, y = map(int, mouse_right_press_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.press(pynput_mouse.Button.right)
@@ -254,6 +275,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_right_release_match = MOUSE_RIGHT_RELEASE_PATTERN.match(action)
     if mouse_right_release_match:
+        page1.dynamic_text.set(mouse_right_release_match)
         x, y = map(int, mouse_right_release_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.release(pynput_mouse.Button.right)
@@ -262,6 +284,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     ocr_match = OCR_PATTERN.match(action)
     if ocr_match:
+        page1.dynamic_text.set(ocr_match)
         coords_str, wait_time, variable_name, variable_content = ocr_match.groups()
         coords = eval(coords_str)
         wait_time = float(wait_time)
@@ -292,6 +315,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     search_match = SEARCH_PATTERN.match(action)
     if search_match:
+        page1.dynamic_text.set(search_match)
         img_str, search_coords_str, succeed_checkpoint, fail_checkpoint, click_if_found, wait_time, threshold_str, succeed_notification_name, fail_notification_name = search_match.groups()
         print(f"Parsed Search event: Image=<base64>, Search Area={search_coords_str}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Click={click_if_found}, Wait={wait_time}, Threshold={threshold_str}")
         
@@ -329,6 +353,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     if_match = IF_PATTERN.match(action)
     if if_match:
+        page1.dynamic_text.set(if_match)
         variable_name, condition, value, succeed_checkpoint, fail_checkpoint, wait_time, succeed_notification_name, fail_notification_name = if_match.groups()
         print(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Wait={wait_time}")
         
@@ -376,6 +401,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     wait_match = WAIT_PATTERN.match(action)
     if wait_match:
+        page1.dynamic_text.set(wait_match)
         wait_time = float(wait_match.group(1))
         print(f"Waiting for {wait_time} seconds...")
         time.sleep(wait_time)
@@ -384,6 +410,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     checkpoint_match = action.startswith("Checkpoint: ")
     if checkpoint_match:
+        page1.dynamic_text.set(checkpoint_match)
         checkpoint_name = action.split("Checkpoint: ")[1]
         print(f"Reached Checkpoint: {checkpoint_name}")
         return current_index + 1, current_timestamp

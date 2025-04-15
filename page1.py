@@ -84,9 +84,22 @@ class Page1(tk.Frame):
         self.wait_button = ttk.Button(button_frame, image=self.wait_icon, style="Custom.TButton", command=self.open_wait_window_wrapper)
         self.wait_button.pack(side=tk.LEFT, padx=5)
 
+        input_frame = tk.Frame(button_frame)
+        input_frame.pack(side=tk.LEFT, pady=10, padx=5)
+
         self.user_input = StringVar()
-        self.entry = tk.Entry(button_frame, textvariable=self.user_input, validate="key", validatecommand=(button_frame.register(self.only_digits), "%P"), width=4)
-        self.entry.pack(pady=10)
+        self.entry = tk.Entry(
+            input_frame,
+            textvariable=self.user_input,
+            validate="key",
+            validatecommand=(button_frame.register(self.only_digits), "%P"),
+            width=4
+        )
+        self.entry.pack(side=tk.LEFT)
+
+        self.dynamic_text = StringVar(value="waiting...")  
+        self.status_label = ttk.Label(input_frame, textvariable=self.dynamic_text, style="Custom.TLabel")
+        self.status_label.pack(side=tk.LEFT, padx=(6, 0)) 
 
         # Set up Treeview frame
         treeview_frame = tk.Frame(self)
