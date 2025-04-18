@@ -274,7 +274,7 @@ def open_pattern_window(parent, coords_callback):
     screen_width = pattern_window.winfo_screenwidth()
     screen_height = pattern_window.winfo_screenheight()
     window_width = int(screen_width * 0.4)
-    window_height = int(screen_height * 0.5)
+    window_height = int(screen_height)
     pattern_window.geometry(f"{window_width}x{window_height}")
     pattern_window.attributes("-topmost", True)
 
@@ -283,16 +283,15 @@ def open_pattern_window(parent, coords_callback):
     Button(pattern_window, text="Select Search Area", command=lambda: start_search_area_selection(pattern_window, search_preview_label)).pack(pady=5)
     search_preview_label.pack(pady=5)
 
-    Label(pattern_window, text="Search change at area:").pack(pady=5)
-    make_change_detect = tk.BooleanVar(value=False)
+    Label(pattern_window, text="Copy search to pattern:").pack(pady=5)
+    copy_to_search = tk.BooleanVar(value=False)
     tk.Checkbutton(
         pattern_window,
-        text="Search change at area",
-        variable=make_change_detect,
-        command=lambda: on_change_detect_toggle()
+        text="Copy search to pattern",
+        variable=copy_to_search,
+        command=lambda: on_copy_search_to_pattern()
     ).pack(pady=5)
 
-    Label(pattern_window, text="Define Pattern to Search").pack(pady=5)
     pattern_preview_label = Label(pattern_window, text="No pattern selected yet")
     Button(pattern_window, text="Select Pattern", command=lambda: start_pattern_selection(pattern_window, pattern_preview_label)).pack(pady=5)
     pattern_preview_label.pack(pady=5)
@@ -331,6 +330,13 @@ def open_pattern_window(parent, coords_callback):
     fail_frame.grid_columnconfigure(1, weight=1)
     fail_frame.grid_columnconfigure(2, weight=1)
 
+    make_change_detect = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        pattern_window,
+        text="Search change at area",
+        variable=make_change_detect
+    ).pack(pady=5)
+
     Label(pattern_window, text="Click if Found:").pack(pady=5)
     click_var = tk.BooleanVar(value=False)
     tk.Checkbutton(pattern_window, text="Click if Found", variable=click_var).pack(pady=5)
@@ -356,10 +362,9 @@ def open_pattern_window(parent, coords_callback):
         elif mode == 'fail':
             fail_notification_dropdown.config(state="disabled")
 
-    def on_change_detect_toggle():
-        if make_change_detect.get():
+    def on_copy_search_to_pattern():
+        if copy_to_search.get():
             if not pattern_window.search_coords:
-
                 print("area not selected")
             else:
                 print("area selected")
@@ -376,10 +381,29 @@ def open_pattern_window(parent, coords_callback):
                 update_pattern_preview_image(screenshot, pattern_preview_label)
 
 
+    # def on_change_detect_toggle():
+    #     if make_change_detect.get():
+    #         if not pattern_window.search_coords:
+
+    #             print("area not selected")
+    #         else:
+    #             print("area selected")
+    #             pattern_window.pattern_coords = pattern_window.search_coords
+    #             x1, y1 = pattern_window.search_coords["start"]
+    #             x2, y2 = pattern_window.search_coords["end"]
+    #             screenshot = pyautogui.screenshot(region=(x1, y1, x2 - x1, y2 - y1))
+    #             buffered = BytesIO()
+    #             screenshot.save(buffered, format="PNG")
+    #             img_str = base64.b64encode(buffered.getvalue()).decode()
+    #             pattern_window.pattern_image_base64 = img_str
+    #             threshold_entry.delete(0, tk.END)
+    #             threshold_entry.insert(0, "0.99")
+    #             update_pattern_preview_image(screenshot, pattern_preview_label)
+
+
             print("Change detection activated - pattern will be taken from search area.")
         else:
             print("Change detection deactivated - manual pattern selection required.")
-
 
     def save_pattern_event():
         """Save the pattern search event."""
@@ -389,6 +413,7 @@ def open_pattern_window(parent, coords_callback):
             fail_checkpoint = fail_checkpoint_dropdown.get()
             click_if_found = click_var.get()
             threshold = float(threshold_entry.get())
+            scene_change = make_change_detect.get()
 
             if not hasattr(pattern_window, 'pattern_coords') or pattern_window.pattern_coords is None:
                 print("Error: No pattern area selected.")
@@ -402,7 +427,7 @@ def open_pattern_window(parent, coords_callback):
                 return
 
             search_coords = getattr(pattern_window, 'search_coords', None)
-            event = f"Search Pattern - Image: {img_str}, Search Area: {search_coords or 'Full Screen'}, Succeed Go To: {succeed_checkpoint}, Fail Go To: {fail_checkpoint}, Click: {click_if_found}, Wait: {wait_time}s, Threshold: {threshold}"
+            event = f"Search Pattern - Image: {img_str}, Search Area: {search_coords or 'Full Screen'}, Succeed Go To: {succeed_checkpoint}, Fail Go To: {fail_checkpoint}, Click: {click_if_found}, Wait: {wait_time}s, Threshold: {threshold}, Scene Change: {scene_change}"
             
             if succeed_send_var.get() and succeed_notification_dropdown.get() != "None":
                 event += f", Succeed Notification: {succeed_notification_dropdown.get()}"
@@ -444,7 +469,6 @@ def start_pattern_selection(pattern_window, preview_label):
     else:
         pattern_window.pattern_image_base64 = None
         print("Invalid coordinates for pattern image capture.")
-
 
 def start_search_area_selection(pattern_window, preview_label):
     """Enable search area selection using F8 keys."""

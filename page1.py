@@ -118,13 +118,13 @@ class Page1(tk.Frame):
             if not self.left_treeview.item(item, "text").strip():
                 self.left_treeview.delete(item)
                 print("Empty row removed at startup:", item)
-        print("Initial Treeview content:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Initial Treeview content:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def start_macro(self):
         """Start the macro execution."""
         self.run_times = self.user_input
         self.macro_recorder.start_macro()
-        print("Treeview content before macro starts:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Treeview content before macro starts:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def open_wait_window_wrapper(self):
         """Open the wait event window."""
@@ -154,7 +154,7 @@ class Page1(tk.Frame):
             return
         
         # Log Treeview content and remove empty rows before adding
-        print("Treeview content before adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Treeview content before adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
         for item in self.left_treeview.get_children():
             if not self.left_treeview.item(item, "text").strip():
                 self.left_treeview.delete(item)
@@ -165,7 +165,7 @@ class Page1(tk.Frame):
             checkpoint_name = event.split("Checkpoint: ")[1]
             self.checkpoints[checkpoint_name] = self.left_treeview.index(item)
             print(f"Checkpoint '{checkpoint_name}' added at index {self.checkpoints[checkpoint_name]}")
-        print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def open_ocr_window_wrapper(self):
         """Open the OCR event window."""

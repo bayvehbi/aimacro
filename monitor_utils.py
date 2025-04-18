@@ -52,7 +52,7 @@ class MacroRecorder:
             self.page1.stop_run_button.config(state="normal")
             threading.Thread(target=self.execute_macro, daemon=True).start()
             print("Macro started")
-            print("Treeview content before macro starts:", [self.page1.left_treeview.item(child, "text") for child in self.page1.left_treeview.get_children()])
+            # print("Treeview content before macro starts:", [self.page1.left_treeview.item(child, "text") for child in self.page1.left_treeview.get_children()])
 
     def stop_macro(self):
         """Stop the executing macro."""
@@ -66,7 +66,7 @@ class MacroRecorder:
         """Execute the recorded macro event s."""
         from misc import execute_macro_logic_wrapper as execute_macro_logic
         self.events = [self.page1.left_treeview.item(item)["text"] for item in self.page1.left_treeview.get_children()]
-        print("self.events content:", self.events)
+        # print("self.events content:", self.events)
         current_index = 0
         run_count = 1
         previous_timestamp = None

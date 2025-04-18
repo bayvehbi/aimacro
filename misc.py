@@ -88,23 +88,13 @@ def send_to_grok_ocr(image_base64, settings, variable_content):
 
 def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, click_if_found=False, wait_time=0, threshold=0.7):
     """Search for a pattern in the specified screen area."""
-
+    print(search_coords)
     start_time = time.time()
     while (page1 is None or page1.running) and time.time() - start_time < wait_time:
         try:
-            print("Decoding base64 pattern image...")
-            pattern_data = base64.b64decode(pattern_img_str)
-            pattern_buffer = BytesIO(pattern_data)
-            pattern_img = Image.open(pattern_buffer)
-            print(f"Pattern image loaded successfully, size: {pattern_img.size}")
-
+            pattern_img = load_image(pattern_img_str)
             if search_coords and search_coords != 'Full Screen':
-                x1, y1 = search_coords['start']
-                x2, y2 = search_coords['end']
-                width, height = x2 - x1, y2 - y1
-                if width <= 0 or height <= 0:
-                    print(f"Invalid search area dimensions: width={width}, height={height}")
-                    return False
+                x1, y1, x2, y2, width, height = unpack_coords(search_coords).values()
                 print(f"Capturing screenshot in area: {search_coords}")
                 screen = pyautogui.screenshot(region=(x1, y1, width, height))
                 search_offset_x, search_offset_y = x1, y1
@@ -114,6 +104,8 @@ def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, cli
                 search_offset_x, search_offset_y = 0, 0
             print(f"Screen image captured, size: {screen.size}")
             print(f"Searching for pattern with confidence={threshold}, grayscale=True...")
+            screen.save("pattern_a.png")
+            pattern_img.save("patter.png")
             location = pyautogui.locate(pattern_img, screen, grayscale=True, confidence=threshold)
             if location:
                 print(f"Pattern found at {location}")
@@ -146,6 +138,30 @@ def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, cli
     print(f"Pattern not found after {wait_time}s of retries")
     return False
 
+def load_image(pattern_img_str):
+    print("Decoding base64 pattern image...")
+    pattern_data = base64.b64decode(pattern_img_str)
+    pattern_buffer = BytesIO(pattern_data)
+    pattern_img = Image.open(pattern_buffer)
+    print(f"Pattern image loaded successfully, size: {pattern_img.size}")
+    return pattern_img
+
+def unpack_coords(search_coords):
+    x1, y1 = search_coords['start']
+    x2, y2 = search_coords['end']
+    width, height = x2 - x1, y2 - y1
+    if width <= 0 or height <= 0:
+        print(f"Invalid search area dimensions: width={width}, height={height}")
+        return False
+    return {"x1": x1, "y1":y1, "x2": x2, "y2": y2, "width": width, "height": height}
+    # return {x1, y1, x2, y2, width, height}
+
+def image_to_base64(screenshot):
+    buffered = BytesIO()
+    screenshot.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    return img_str
+
 # Precompiled regex patterns
 TIMESTAMP_PATTERN = re.compile(r"(\d+\.\d+) - (.+)")
 KEY_PRESS_PATTERN = re.compile(r"Key pressed: (.+)")
@@ -157,7 +173,7 @@ MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button.left released at: \((\d+)
 MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button.right pressed at: \((\d+), (\d+)\)")
 MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button.right released at: \((\d+), (\d+)\)")
 OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
-SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
+SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If (\w+) ([><=!]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 WAIT_PATTERN = re.compile(r"Wait: (\d+\.\d+)s")
 
@@ -167,7 +183,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         print("Macro not running, skipping event.")
         return current_index, previous_timestamp
 
-    print(f"Processing: {action} at index {current_index}")
+    # print(f"Processing: {action} at index {current_index}")
 
     kb_controller = pynput_keyboard.Controller()
     mouse_controller = pynput_mouse.Controller()
@@ -191,7 +207,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     # Handle key press events
     key_press_match = KEY_PRESS_PATTERN.match(action)
     if key_press_match:
-        page1.dynamic_text.set(key_press_match)
+        page1.dynamic_text.set(key_press_match.string)
         key = key_press_match.group(1)
         try:
             if key.startswith("'") and key.endswith("'"):  # Single character keys: 'a', 's', 'd'
@@ -211,7 +227,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     # Handle key release events
     key_release_match = KEY_RELEASE_PATTERN.match(action)
     if key_release_match:
-        page1.dynamic_text.set(key_release_match)
+        page1.dynamic_text.set(key_release_match.string)
         key = key_release_match.group(1)
         try:
             if key.startswith("'") and key.endswith("'"):  # Single character keys: 'a', 's', 'd'
@@ -230,7 +246,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_move_match = MOUSE_MOVE_PATTERN.match(action)
     if mouse_move_match:
-        page1.dynamic_text.set(mouse_move_match)
+        page1.dynamic_text.set(mouse_move_match.string)
         x, y = map(int, mouse_move_match.groups())
         mouse_controller.position = (x, y)
         print(f"Moved mouse to: ({x}, {y})")
@@ -238,7 +254,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_scroll_match = MOUSE_SCROLL_PATTERN.match(action)
     if mouse_scroll_match:
-        page1.dynamic_text.set(mouse_scroll_match)
+        page1.dynamic_text.set(mouse_scroll_match.string)
         direction, x, y = mouse_scroll_match.groups()
         mouse_controller.position = (int(x), int(y))
         scroll_amount = 1 if direction == "up" else -1
@@ -248,7 +264,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_left_press_match = MOUSE_LEFT_PRESS_PATTERN.match(action)
     if mouse_left_press_match:
-        page1.dynamic_text.set(mouse_left_press_match)
+        page1.dynamic_text.set(mouse_left_press_match.string)
         x, y = map(int, mouse_left_press_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.press(pynput_mouse.Button.left)
@@ -257,7 +273,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_left_release_match = MOUSE_LEFT_RELEASE_PATTERN.match(action)
     if mouse_left_release_match:
-        page1.dynamic_text.set(mouse_left_release_match)
+        page1.dynamic_text.set(mouse_left_release_match.string)
         x, y = map(int, mouse_left_release_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.release(pynput_mouse.Button.left)
@@ -275,7 +291,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_right_release_match = MOUSE_RIGHT_RELEASE_PATTERN.match(action)
     if mouse_right_release_match:
-        page1.dynamic_text.set(mouse_right_release_match)
+        page1.dynamic_text.set(mouse_right_release_match.string)
         x, y = map(int, mouse_right_release_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.release(pynput_mouse.Button.right)
@@ -284,7 +300,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     ocr_match = OCR_PATTERN.match(action)
     if ocr_match:
-        page1.dynamic_text.set(ocr_match)
+        page1.dynamic_text.set(ocr_match.string)
         coords_str, wait_time, variable_name, variable_content = ocr_match.groups()
         coords = eval(coords_str)
         wait_time = float(wait_time)
@@ -315,10 +331,9 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     search_match = SEARCH_PATTERN.match(action)
     if search_match:
-        page1.dynamic_text.set(search_match)
-        img_str, search_coords_str, succeed_checkpoint, fail_checkpoint, click_if_found, wait_time, threshold_str, succeed_notification_name, fail_notification_name = search_match.groups()
-        print(f"Parsed Search event: Image=<base64>, Search Area={search_coords_str}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Click={click_if_found}, Wait={wait_time}, Threshold={threshold_str}")
-        
+        page1.dynamic_text.set(search_match.string)
+        img_str, search_coords_str, succeed_checkpoint, fail_checkpoint, click_if_found, wait_time, threshold_str, scene_change, succeed_notification_name, fail_notification_name = search_match.groups()
+        print(f"Parsed Search event: Image={img_str[:25]}, Search Area={search_coords_str}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Click={click_if_found}, Wait={wait_time}, Threshold={threshold_str}")
         try:
             wait_time = float(wait_time)
             threshold = float(threshold_str) if threshold_str.replace('.', '').isdigit() else 0.7
@@ -339,6 +354,14 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
                 print(f"Attempting to send fail notification: {fail_notification_name}")
                 send_notification(fail_notification_name, page1)
 
+            if scene_change == 'True' and not pattern_found:
+                x1, y1, x2, y2, width, height = unpack_coords(search_coords).values()
+                screen = pyautogui.screenshot(region=(x1, y1, width, height))
+                screen_str = image_to_base64(screen)
+                load_image(screen_str).save("newone.png")
+                new_text = re.sub(r'Image: [^\s,]+', 'Image: ' + str(screen_str), page1.left_treeview.item(page1.left_treeview.get_children()[current_index])["text"])                # Update the event in self.events and treeview text
+                page1.left_treeview.item(page1.left_treeview.get_children()[current_index], text=new_text)
+                
             if target_checkpoint != "Next":
                 next_index = page1.get_checkpoint_index(target_checkpoint)
                 if next_index is not None:
@@ -353,7 +376,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     if_match = IF_PATTERN.match(action)
     if if_match:
-        page1.dynamic_text.set(if_match)
+        page1.dynamic_text.set(if_match.string)
         variable_name, condition, value, succeed_checkpoint, fail_checkpoint, wait_time, succeed_notification_name, fail_notification_name = if_match.groups()
         print(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Wait={wait_time}")
         
@@ -401,16 +424,19 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     wait_match = WAIT_PATTERN.match(action)
     if wait_match:
-        page1.dynamic_text.set(wait_match)
+        # page1.dynamic_text.set(wait_match.string)
+        time_count = 0
         wait_time = float(wait_match.group(1))
         print(f"Waiting for {wait_time} seconds...")
-        time.sleep(wait_time)
+        for i in range(int(wait_time)):
+            page1.dynamic_text.set(f"waiting: {wait_time-i}")
+            time.sleep(1)
         print(f"Wait completed after {wait_time} seconds.")
         return current_index + 1, current_timestamp
 
     checkpoint_match = action.startswith("Checkpoint: ")
     if checkpoint_match:
-        page1.dynamic_text.set(checkpoint_match)
+        page1.dynamic_text.set(checkpoint_match.string)
         checkpoint_name = action.split("Checkpoint: ")[1]
         print(f"Reached Checkpoint: {checkpoint_name}")
         return current_index + 1, current_timestamp
