@@ -207,7 +207,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     # Handle key press events
     key_press_match = KEY_PRESS_PATTERN.match(action)
     if key_press_match:
-        page1.dynamic_text.set(key_press_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + key_press_match.string)
         key = key_press_match.group(1)
         try:
             if key.startswith("'") and key.endswith("'"):  # Single character keys: 'a', 's', 'd'
@@ -227,7 +227,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     # Handle key release events
     key_release_match = KEY_RELEASE_PATTERN.match(action)
     if key_release_match:
-        page1.dynamic_text.set(key_release_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + key_release_match.string)
         key = key_release_match.group(1)
         try:
             if key.startswith("'") and key.endswith("'"):  # Single character keys: 'a', 's', 'd'
@@ -246,7 +246,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_move_match = MOUSE_MOVE_PATTERN.match(action)
     if mouse_move_match:
-        page1.dynamic_text.set(mouse_move_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_move_match.string)
         x, y = map(int, mouse_move_match.groups())
         mouse_controller.position = (x, y)
         print(f"Moved mouse to: ({x}, {y})")
@@ -254,7 +254,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_scroll_match = MOUSE_SCROLL_PATTERN.match(action)
     if mouse_scroll_match:
-        page1.dynamic_text.set(mouse_scroll_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_scroll_match.string)
         direction, x, y = mouse_scroll_match.groups()
         mouse_controller.position = (int(x), int(y))
         scroll_amount = 1 if direction == "up" else -1
@@ -264,7 +264,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_left_press_match = MOUSE_LEFT_PRESS_PATTERN.match(action)
     if mouse_left_press_match:
-        page1.dynamic_text.set(mouse_left_press_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_left_press_match.string)
         x, y = map(int, mouse_left_press_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.press(pynput_mouse.Button.left)
@@ -273,7 +273,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_left_release_match = MOUSE_LEFT_RELEASE_PATTERN.match(action)
     if mouse_left_release_match:
-        page1.dynamic_text.set(mouse_left_release_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_left_release_match.string)
         x, y = map(int, mouse_left_release_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.release(pynput_mouse.Button.left)
@@ -282,7 +282,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_right_press_match = MOUSE_RIGHT_PRESS_PATTERN.match(action)
     if mouse_right_press_match:
-        page1.dynamic_text.set(mouse_right_press_match)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_press_match)
         x, y = map(int, mouse_right_press_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.press(pynput_mouse.Button.right)
@@ -291,7 +291,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     mouse_right_release_match = MOUSE_RIGHT_RELEASE_PATTERN.match(action)
     if mouse_right_release_match:
-        page1.dynamic_text.set(mouse_right_release_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_release_match.string)
         x, y = map(int, mouse_right_release_match.groups())
         mouse_controller.position = (x, y)
         mouse_controller.release(pynput_mouse.Button.right)
@@ -300,7 +300,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     ocr_match = OCR_PATTERN.match(action)
     if ocr_match:
-        page1.dynamic_text.set(ocr_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + ocr_match.string)
         coords_str, wait_time, variable_name, variable_content = ocr_match.groups()
         coords = eval(coords_str)
         wait_time = float(wait_time)
@@ -331,7 +331,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     search_match = SEARCH_PATTERN.match(action)
     if search_match:
-        page1.dynamic_text.set(search_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + search_match.string)
         img_str, search_coords_str, succeed_checkpoint, fail_checkpoint, click_if_found, wait_time, threshold_str, scene_change, succeed_notification_name, fail_notification_name = search_match.groups()
         print(f"Parsed Search event: Image={img_str[:25]}, Search Area={search_coords_str}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Click={click_if_found}, Wait={wait_time}, Threshold={threshold_str}")
         try:
@@ -376,7 +376,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     if_match = IF_PATTERN.match(action)
     if if_match:
-        page1.dynamic_text.set(if_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + if_match.string)
         variable_name, condition, value, succeed_checkpoint, fail_checkpoint, wait_time, succeed_notification_name, fail_notification_name = if_match.groups()
         print(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Wait={wait_time}")
         
@@ -427,14 +427,18 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         wait_time = float(wait_match.group(1))
         print(f"Waiting for {wait_time} seconds...")
         for i in range(int(wait_time)):
-            page1.dynamic_text.set(f"waiting: {wait_time-i}")
+            page1.dynamic_text.set(f"line: {current_index} - " + f"waiting: {wait_time-i}")
             time.sleep(1)
+            if page1 and not page1.running:
+                page1.running = False
+                return current_index, previous_timestamp
+    
         print(f"Wait completed after {wait_time} seconds.")
         return current_index + 1, current_timestamp
 
     checkpoint_match = action.startswith("Checkpoint: ")
     if checkpoint_match:
-        page1.dynamic_text.set(checkpoint_match.string)
+        page1.dynamic_text.set(f"line: {current_index} - " + action)
         checkpoint_name = action.split("Checkpoint: ")[1]
         print(f"Reached Checkpoint: {checkpoint_name}")
         return current_index + 1, current_timestamp
