@@ -424,8 +424,6 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
     wait_match = WAIT_PATTERN.match(action)
     if wait_match:
-        # page1.dynamic_text.set(wait_match.string)
-        time_count = 0
         wait_time = float(wait_match.group(1))
         print(f"Waiting for {wait_time} seconds...")
         for i in range(int(wait_time)):
