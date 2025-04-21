@@ -1,2 +1,9 @@
-__pychache__
+__pycache__
+aimacro
+build
+dist
 *.json
+__pycache__/monitor_utils.cpython-311.pyc
+__pycache__/page1.cpython-311.pyc
+__pycache__/monitor_utils.cpython-311.pyc
+__pycache__/page1.cpython-311.pyc

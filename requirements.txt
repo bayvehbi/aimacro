@@ -2,3 +2,4 @@ pynput
 pyautogui
 Pillow
 opencv-python-headless
+requests
