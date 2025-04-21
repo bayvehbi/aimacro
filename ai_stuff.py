@@ -109,14 +109,15 @@ def open_if_window(parent, coords_callback, variables):
     Label(if_window, text="Define If Condition").pack(pady=5)
 
     Label(if_window, text="Select Variable:").pack(pady=5)
-    variable_names = list(variables.keys()) if variables else ["None"]
+    time_variables = ["time_hour", "time_minute", "time_second", "time_weekday", "time_day", "time_month", "time_year"]
+    variable_names = time_variables + list(variables.keys())
     print(f"Available variables for If: {variable_names}")
     variable_dropdown = ttk.Combobox(if_window, values=variable_names, state="readonly")
     variable_dropdown.set(variable_names[0])
     variable_dropdown.pack(pady=5)
 
     Label(if_window, text="Condition:").pack(pady=5)
-    condition_dropdown = ttk.Combobox(if_window, values=["==", ">", "<", ">=", "<=", "!=", "Contains"], state="readonly")
+    condition_dropdown = ttk.Combobox(if_window, values=["==", ">", "<", ">=", "<=", "!=", "Contains", "%"], state="readonly")
     condition_dropdown.set("==")
     condition_dropdown.pack(pady=5)
 

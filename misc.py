@@ -10,6 +10,7 @@ from PIL import Image
 import traceback
 import http.client
 import urllib.parse
+import datetime
 
 def send_notification(notification_name, page1):
     """Send a notification via Pushover API."""
@@ -174,7 +175,7 @@ MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button.right pressed at: \((\d+),
 MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button.right released at: \((\d+), (\d+)\)")
 OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
-IF_PATTERN = re.compile(r"If (\w+) ([><=!]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
+IF_PATTERN = re.compile(r"If (\w+) ([><=!%]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 WAIT_PATTERN = re.compile(r"Wait: (\d+\.\d+)s")
 
 def execute_macro_logic(action, page1, current_index, variables, previous_timestamp=None):
@@ -379,17 +380,28 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         page1.dynamic_text.set(f"line: {current_index} - " + if_match.string)
         variable_name, condition, value, succeed_checkpoint, fail_checkpoint, wait_time, succeed_notification_name, fail_notification_name = if_match.groups()
         print(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Wait={wait_time}")
-        
+        now = datetime.datetime.now()
+        variables["time_hour"] = now.hour
+        variables["time_minute"] = now.minute
+        variables["time_second"] = now.second
+        variables["time_weekday"] = now.weekday()
+        variables["time_day"] = now.day
+        variables["time_month"] = now.month
+        variables["time_year"] = now.year
         wait_time = float(wait_time)
         variable_value = variables.get(variable_name)
         
         if variable_value is None:
             print(f"Variable '{variable_name}' not found in variables: {variables}, skipping If condition.")
             return current_index + 1, current_timestamp
-        
+        print(f"variable_value: {variable_value} - value: {value}")
         condition_met = False
         if condition == "==":
-            condition_met = str(variable_value) == str(value)
+            try:
+                # Destek: time_minute % 5 == 0 gibi ifadeleri çöz
+                condition_met = eval(str(variable_value) + "==" + str(value))
+            except:
+                condition_met = str(variable_value) == str(value)
         elif condition == ">":
             condition_met = float(variable_value) > float(value) if variable_value.replace('.', '').isdigit() and value.replace('.', '').isdigit() else False
         elif condition == "<":
@@ -402,6 +414,11 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             condition_met = str(variable_value) != str(value)
         elif condition == "Contains":
             condition_met = str(value) in str(variable_value)
+        elif condition == "%":
+            try:
+                condition_met = int(variable_value) % int(value) == 0
+            except:
+                condition_met = False
 
         target_checkpoint = succeed_checkpoint if condition_met else fail_checkpoint
         print(f"Condition {'met' if condition_met else 'not met'}, going to '{target_checkpoint}'...")
