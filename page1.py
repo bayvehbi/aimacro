@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, Checkbutton
+from tkinter import ttk, Entry, StringVar, Frame
 import os
 from monitor_utils import MacroRecorder, ShortcutHandler
 import time
@@ -22,6 +22,7 @@ class Page1(tk.Frame):
         self.stop_macro_key = master.master.settings.get("stop_macro_run_shortcut", "q")
         self.macro_recorder = MacroRecorder(self)
         self.shortcut_handler = ShortcutHandler(self)
+        self.run_times = 1
         self.setup_ui()
 
     def setup_ui(self):
@@ -83,8 +84,22 @@ class Page1(tk.Frame):
         self.wait_button = ttk.Button(button_frame, image=self.wait_icon, style="Custom.TButton", command=self.open_wait_window_wrapper)
         self.wait_button.pack(side=tk.LEFT, padx=5)
 
-        self.run_continuously_check = Checkbutton(button_frame, text="Run Continuously", variable=self.run_continuously)
-        self.run_continuously_check.pack(side=tk.LEFT, padx=5)
+        input_frame = ttk.Frame(button_frame)
+        input_frame.pack(side=tk.LEFT, pady=10, padx=5)
+
+        self.user_input = StringVar()
+        self.entry = tk.Entry(
+            input_frame,
+            textvariable=self.user_input,
+            validate="key",
+            validatecommand=(button_frame.register(self.only_digits), "%P"),
+            width=4
+        )
+        self.entry.pack(side=tk.LEFT)
+
+        self.dynamic_text = StringVar(value="waiting...")  
+        self.status_label = ttk.Label(input_frame, textvariable=self.dynamic_text, style="Custom.TLabel")
+        self.status_label.pack(side=tk.LEFT, padx=(6, 0)) 
 
         # Set up Treeview frame
         treeview_frame = tk.Frame(self)
@@ -103,12 +118,13 @@ class Page1(tk.Frame):
             if not self.left_treeview.item(item, "text").strip():
                 self.left_treeview.delete(item)
                 print("Empty row removed at startup:", item)
-        print("Initial Treeview content:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Initial Treeview content:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def start_macro(self):
         """Start the macro execution."""
+        self.run_times = self.user_input
         self.macro_recorder.start_macro()
-        print("Treeview content before macro starts:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Treeview content before macro starts:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def open_wait_window_wrapper(self):
         """Open the wait event window."""
@@ -138,7 +154,7 @@ class Page1(tk.Frame):
             return
         
         # Log Treeview content and remove empty rows before adding
-        print("Treeview content before adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Treeview content before adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
         for item in self.left_treeview.get_children():
             if not self.left_treeview.item(item, "text").strip():
                 self.left_treeview.delete(item)
@@ -149,7 +165,7 @@ class Page1(tk.Frame):
             checkpoint_name = event.split("Checkpoint: ")[1]
             self.checkpoints[checkpoint_name] = self.left_treeview.index(item)
             print(f"Checkpoint '{checkpoint_name}' added at index {self.checkpoints[checkpoint_name]}")
-        print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+        # print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def open_ocr_window_wrapper(self):
         """Open the OCR event window."""
@@ -174,3 +190,7 @@ class Page1(tk.Frame):
     def open_wait_window_wrapper(self):
         """Open the wait event window (duplicate method, kept for compatibility)."""
         open_wait_window(self, self.add_event_to_treeview)
+
+    def only_digits(self, value):
+        """Returns only digits."""
+        return value.isdigit() or value == ""
