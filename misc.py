@@ -311,6 +311,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         screenshot = pyautogui.screenshot(region=(x1, y1, x2-x1, y2-y1))
         buffered = BytesIO()
         screenshot.save(buffered, format="PNG")
+        screenshot.save("ocr.png")
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
         text = send_to_grok_ocr(img_str, page1.master.master.settings, variable_content)
