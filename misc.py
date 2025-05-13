@@ -11,6 +11,7 @@ import traceback
 import http.client
 import urllib.parse
 import datetime
+import os 
 
 def send_notification(notification_name, page1):
     """Send a notification via Pushover API."""
@@ -105,6 +106,7 @@ def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, cli
                 search_offset_x, search_offset_y = 0, 0
             print(f"Screen image captured, size: {screen.size}")
             print(f"Searching for pattern with confidence={threshold}, grayscale=True...")
+            os.makedirs("./logs", exist_ok=True)
             screen.save("./logs/pattern_a.png")
             pattern_img.save("./logs/patter.png")
             location = pyautogui.locate(pattern_img, screen, grayscale=True, confidence=threshold)
@@ -310,6 +312,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
         screenshot = pyautogui.screenshot(region=(x1, y1, x2-x1, y2-y1))
         buffered = BytesIO()
+        os.makedirs("./logs", exist_ok=True)
         screenshot.save(buffered, format="PNG")
         screenshot.save("./logs/ocr.png")
         img_str = base64.b64encode(buffered.getvalue()).decode()
@@ -360,6 +363,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
                 x1, y1, x2, y2, width, height = unpack_coords(search_coords).values()
                 screen = pyautogui.screenshot(region=(x1, y1, width, height))
                 screen_str = image_to_base64(screen)
+                os.makedirs("./logs", exist_ok=True)
                 load_image(screen_str).save("./logs/newone.png")
                 new_text = re.sub(r'Image: [^\s,]+', 'Image: ' + str(screen_str), page1.left_treeview.item(page1.left_treeview.get_children()[current_index])["text"])                # Update the event in self.events and treeview text
                 page1.left_treeview.item(page1.left_treeview.get_children()[current_index], text=new_text)
