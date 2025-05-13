@@ -156,12 +156,7 @@ class MainApplication(tk.Tk):
 
     def save_macro(self):
         """Save the macro and its data to a file."""
-        os.makedirs("macros", exist_ok=True)  # Ensure the 'macros' folder exists
-        file_path = filedialog.asksaveasfilename(
-            initialdir="macros",  # Set default folder to 'macros'
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json")]
-        )
+        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
         if file_path:
             data = {
                 "events": [self.page1.left_treeview.item(child, "text") for child in self.page1.left_treeview.get_children()],

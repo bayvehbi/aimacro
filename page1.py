@@ -6,6 +6,10 @@ import time
 from PIL import Image, ImageTk
 from draggable_treeview import DraggableTreeview
 from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_pattern_window, open_wait_window
+import base64
+import io
+from PIL import Image, ImageTk
+from images_base64_output import images_base64
 
 class Page1(tk.Frame):
     def __init__(self, master):
@@ -26,6 +30,13 @@ class Page1(tk.Frame):
         self.setup_ui()
 
     def setup_ui(self):
+        def resize_icon_from_base64(b64_string):
+            """Base64 string’ten 12x12 ikon oluşturur."""
+            image_data = base64.b64decode(b64_string)
+            image = Image.open(io.BytesIO(image_data))
+            image = image.resize((12, 12), Image.LANCZOS)
+            return ImageTk.PhotoImage(image)
+        
         """Set up the UI elements for Page1."""
         button_frame = tk.Frame(self, bg="#f0f0f0")
         button_frame.pack(side=tk.TOP, padx=10, pady=5, fill=tk.X)
@@ -47,15 +58,15 @@ class Page1(tk.Frame):
             img = img.resize((12, 12), Image.LANCZOS)
             return ImageTk.PhotoImage(img)
 
-        self.run_icon = resize_icon(os.path.join(icon_dir, "play.png"))
-        self.stop_icon = resize_icon(os.path.join(icon_dir, "stop.png"))
-        self.record_icon = resize_icon(os.path.join(icon_dir, "start_rcd.png"))
-        self.stop_record_icon = resize_icon(os.path.join(icon_dir, "stop_rcd.png"))
-        self.ocr_icon = resize_icon(os.path.join(icon_dir, "ocr.png"))
-        self.if_icon = resize_icon(os.path.join(icon_dir, "if.png"))
-        self.checkpoint_icon = resize_icon(os.path.join(icon_dir, "checkpoint.png"))
-        self.pattern_icon = resize_icon(os.path.join(icon_dir, "pattern.png"))
-        self.wait_icon = resize_icon(os.path.join(icon_dir, "wait.png"))
+        self.run_icon = resize_icon_from_base64(images_base64["play.png"])
+        self.stop_icon = resize_icon_from_base64(images_base64["stop.png"])
+        self.record_icon = resize_icon_from_base64(images_base64["start_rcd.png"])
+        self.stop_record_icon = resize_icon_from_base64(images_base64["stop_rcd.png"])
+        self.ocr_icon = resize_icon_from_base64(images_base64["ocr.png"])
+        self.if_icon = resize_icon_from_base64(images_base64["if.png"])
+        self.checkpoint_icon = resize_icon_from_base64(images_base64["checkpoint.png"])
+        self.pattern_icon = resize_icon_from_base64(images_base64["pattern.png"])
+        self.wait_icon = resize_icon_from_base64(images_base64["wait.png"])
 
         self.run_button = ttk.Button(button_frame, image=self.run_icon, style="Custom.TButton", command=self.start_macro)
         self.run_button.pack(side=tk.LEFT, padx=5)
