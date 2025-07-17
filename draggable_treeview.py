@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import re
 
 class DraggableTreeview(ttk.Treeview):
     def __init__(self, master, accepted_sources=None, allow_drop=True, allow_self_drag=True, **kwargs):
@@ -7,10 +8,15 @@ class DraggableTreeview(ttk.Treeview):
         self.accepted_sources = accepted_sources if accepted_sources is not None else []  # List of accepted drag sources
         self.allow_drop = allow_drop  # Allow dropping items into this treeview
         self.allow_self_drag = allow_self_drag  # Allow dragging within this treeview
+        self.clipboard_items = []
         self.bind("<Button-1>", self.on_click)
         self.bind("<B1-Motion>", self.start_drag)
         self.bind("<ButtonRelease-1>", self.drop)
+        self.bind("<Double-1>", self.open_edit_dialog)   
         self.bind("<Delete>", self.delete_selected)  # Bind Delete key to remove selected items
+        self.bind_all("<Control-c>", self.copy_selected_items)
+        self.bind_all("<Control-x>", self.cut_selected_items)
+        self.bind_all("<Control-v>", self.paste_items)
         self.drag_data = {"items": [], "dragging": False, "selection_locked": False, "hover_item": None, "hover_treeview": None}
 
         # Configure visual styles
@@ -19,6 +25,173 @@ class DraggableTreeview(ttk.Treeview):
         self.tag_configure("target_hover", background="purple")
         self.tag_configure("active", background="green")  # Tag for active item
         self.column("#0", width=150)
+
+
+    def copy_selected_items(self, event=None):
+        selected = self.selection()
+        if selected:
+            self.clipboard_items = [self.item(i, "text") for i in selected]
+            print(f"Copied {len(self.clipboard_items)} items")
+
+    def cut_selected_items(self, event=None):
+        selected = self.selection()
+        if selected:
+            self.clipboard_items = [self.item(i, "text") for i in selected]
+            for i in selected:
+                self.delete(i)
+            print(f"Cut {len(self.clipboard_items)} items")
+
+    def paste_items(self, event=None):
+        if not self.clipboard_items:
+            print("Clipboard empty")
+            return
+
+        selected = self.selection()
+        if selected:
+            insert_index = self.index(selected[-1]) + 1
+        else:
+            insert_index = len(self.get_children())
+
+        for item_text in self.clipboard_items:
+            self.insert("", insert_index, text=item_text)
+            insert_index += 1
+
+        print(f"Pasted {len(self.clipboard_items)} items")
+
+
+    def open_edit_dialog(self, event):
+        """Open a dialog to edit structured items or mouse actions."""
+        import re
+        import ast
+
+        def is_mouse_action_with_coordinates(text):
+            patterns = [
+                r"Mouse Button\.left (pressed|released) at: \(\d+, \d+\)",
+                r"Mouse Button\.right (pressed|released) at: \(\d+, \d+\)",
+                r"Mouse scrolled (up|down) at: \(\d+, \d+\)"
+            ]
+            return any(re.match(p, text) for p in patterns)
+
+        item_id = self.identify_row(event.y)
+        if not item_id:
+            return
+
+        full_text = self.item(item_id, "text").strip()
+
+        # ✅ NEW BLOCK: handle mouse action with optional coordinate removal
+        action_only = full_text.split(" - ", 1)[-1].strip()
+        if is_mouse_action_with_coordinates(action_only):
+            print("itsit")
+            edit_win = tk.Toplevel(self)
+            edit_win.title("Edit Mouse Action")
+            edit_win.grab_set()
+            edit_win.resizable(False, False)
+
+            raw_var = tk.StringVar(value=full_text)
+            use_current_position = tk.BooleanVar(value=False)
+
+            tk.Label(edit_win, text="Mouse Action Text:").pack(padx=10, pady=(10, 4))
+            tk.Entry(edit_win, textvariable=raw_var, width=70).pack(padx=10, pady=4)
+
+            tk.Checkbutton(
+                edit_win,
+                text="Use current position (remove coordinates)",
+                variable=use_current_position
+            ).pack(padx=10, pady=4)
+
+            def save_mouse_action():
+                text = raw_var.get().strip()
+                if use_current_position.get():
+                    text = re.sub(r" at: \(\d+, \d+\)", "", text)
+                self.item(item_id, text=text)
+                print(f"Updated mouse action to: {text}")
+                edit_win.destroy()
+
+            tk.Button(edit_win, text="Save", command=save_mouse_action).pack(side=tk.LEFT, padx=10, pady=10)
+            tk.Button(edit_win, text="Cancel", command=edit_win.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
+            return
+
+        # Handle simple time-based entries like "0.123 - Some Action"
+        if " - " in full_text and not ":" in full_text:
+            time_part, content = full_text.split(" - ", 1)
+            simple_win = tk.Toplevel(self)
+            simple_win.title("Edit Item")
+            simple_win.grab_set()
+
+            time_var = tk.StringVar(value=time_part)
+            content_var = tk.StringVar(value=content)
+
+            tk.Label(simple_win, text="Time:").grid(row=0, column=0, sticky="e")
+            tk.Entry(simple_win, textvariable=time_var, width=10).grid(row=0, column=1)
+
+            tk.Label(simple_win, text="Text:").grid(row=1, column=0, sticky="e")
+            tk.Entry(simple_win, textvariable=content_var, width=50).grid(row=1, column=1)
+
+            def save_simple():
+                try:
+                    new_time = float(time_var.get())
+                    new_text = f"{new_time:.3f} - {content_var.get().strip()}"
+                    self.item(item_id, text=new_text)
+                    simple_win.destroy()
+                except:
+                    tk.messagebox.showerror("Invalid time", "Time must be a float.")
+
+            tk.Button(simple_win, text="Save", command=save_simple).grid(row=2, column=0, pady=6)
+            tk.Button(simple_win, text="Cancel", command=simple_win.destroy).grid(row=2, column=1, pady=6, sticky="e")
+            return
+
+        # Advanced case: label: value pairs
+        def safe_split(s):
+            parts = []
+            current = ""
+            depth = 0
+            for char in s:
+                if char == ',' and depth == 0:
+                    parts.append(current.strip())
+                    current = ""
+                else:
+                    current += char
+                    if char in "([{":
+                        depth += 1
+                    elif char in ")]}":
+                        depth -= 1
+            if current:
+                parts.append(current.strip())
+            return parts
+
+        pairs = safe_split(full_text)
+        key_value_pairs = []
+        for pair in pairs:
+            if ":" in pair:
+                key, val = pair.split(":", 1)
+                key_value_pairs.append((key.strip(), val.strip()))
+            else:
+                key_value_pairs.append((pair.strip(), ""))
+
+        edit_win = tk.Toplevel(self)
+        edit_win.title("Edit Structured Item")
+        edit_win.grab_set()
+        edit_win.resizable(False, False)
+
+        entries = []
+        for i, (key, val) in enumerate(key_value_pairs):
+            tk.Label(edit_win, text=key + ":").grid(row=i, column=0, sticky="e", padx=5, pady=3)
+            var = tk.StringVar(value=val)
+            entry = tk.Entry(edit_win, textvariable=var, width=60)
+            entry.grid(row=i, column=1, padx=5, pady=3)
+            entries.append((key, var))
+
+        def save_advanced():
+            new_parts = [f"{key}: {var.get().strip()}" for key, var in entries]
+            new_text = ", ".join(new_parts)
+            self.item(item_id, text=new_text)
+            print(f"Updated structured item to:\n{new_text}")
+            edit_win.destroy()
+
+        tk.Button(edit_win, text="Save", command=save_advanced).grid(row=len(entries), column=0, pady=10)
+        tk.Button(edit_win, text="Cancel", command=edit_win.destroy).grid(row=len(entries), column=1, pady=10, sticky="e")
+
+
 
     def on_click(self, event):
         """Handle mouse click to initiate selection or drag."""

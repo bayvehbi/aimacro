@@ -170,11 +170,11 @@ TIMESTAMP_PATTERN = re.compile(r"(\d+\.\d+) - (.+)")
 KEY_PRESS_PATTERN = re.compile(r"Key pressed: (.+)")
 KEY_RELEASE_PATTERN = re.compile(r"Key released: (.+)")
 MOUSE_MOVE_PATTERN = re.compile(r"Mouse moved to: \((\d+), (\d+)\)")
-MOUSE_SCROLL_PATTERN = re.compile(r"Mouse scrolled (up|down) at: \((\d+), (\d+)\)")
-MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button.left pressed at: \((\d+), (\d+)\)")
-MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button.left released at: \((\d+), (\d+)\)")
-MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button.right pressed at: \((\d+), (\d+)\)")
-MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button.right released at: \((\d+), (\d+)\)")
+MOUSE_SCROLL_PATTERN = re.compile(r"Mouse scrolled (up|down)(?: at: \((\d+), (\d+)\))?")
+MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button\.left pressed(?: at: \((\d+), (\d+)\))?")
+MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button\.left released(?: at: \((\d+), (\d+)\))?")
+MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button\.right pressed(?: at: \((\d+), (\d+)\))?")
+MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button\.right released(?: at: \((\d+), (\d+)\))?")
 OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If (\w+) ([><=!%]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
@@ -259,46 +259,69 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     if mouse_scroll_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_scroll_match.string)
         direction, x, y = mouse_scroll_match.groups()
-        mouse_controller.position = (int(x), int(y))
+        if x and y:
+            mouse_controller.position = (int(x), int(y))
+        else:
+            x, y = mouse_controller.position
         scroll_amount = 1 if direction == "up" else -1
         mouse_controller.scroll(0, scroll_amount)
         print(f"Scrolled {direction} at: ({x}, {y})")
         return current_index + 1, current_timestamp
 
+
     mouse_left_press_match = MOUSE_LEFT_PRESS_PATTERN.match(action)
     if mouse_left_press_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_left_press_match.string)
-        x, y = map(int, mouse_left_press_match.groups())
-        mouse_controller.position = (x, y)
+        x, y = mouse_left_press_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.press(pynput_mouse.Button.left)
-        print(f"Left click pressed at: ({x}, {y})")
+        print(f"Left click pressed at: {pos}")
         return current_index + 1, current_timestamp
+
 
     mouse_left_release_match = MOUSE_LEFT_RELEASE_PATTERN.match(action)
     if mouse_left_release_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_left_release_match.string)
-        x, y = map(int, mouse_left_release_match.groups())
-        mouse_controller.position = (x, y)
+        x, y = mouse_left_release_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.release(pynput_mouse.Button.left)
-        print(f"Left click released at: ({x}, {y})")
+        print(f"Left click released at: {pos}")
         return current_index + 1, current_timestamp
+
 
     mouse_right_press_match = MOUSE_RIGHT_PRESS_PATTERN.match(action)
     if mouse_right_press_match:
-        page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_press_match)
-        x, y = map(int, mouse_right_press_match.groups())
-        mouse_controller.position = (x, y)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_press_match.string)
+        x, y = mouse_right_press_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.press(pynput_mouse.Button.right)
-        print(f"Right click pressed at: ({x}, {y})")
+        print(f"Right click pressed at: {pos}")
         return current_index + 1, current_timestamp
+
 
     mouse_right_release_match = MOUSE_RIGHT_RELEASE_PATTERN.match(action)
     if mouse_right_release_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_release_match.string)
-        x, y = map(int, mouse_right_release_match.groups())
-        mouse_controller.position = (x, y)
+        x, y = mouse_right_release_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.release(pynput_mouse.Button.right)
-        print(f"Right click released at: ({x}, {y})")
+        print(f"Right click released at: {pos}")
         return current_index + 1, current_timestamp
 
     ocr_match = OCR_PATTERN.match(action)
