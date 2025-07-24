@@ -205,29 +205,40 @@ class Page1(tk.Frame):
         """Stop macro execution."""
         self.macro_recorder.stop_macro()
 
-    def add_event_to_treeview(self, event):
-        """Add an event to the Treeview."""
+    def add_event_to_treeview(self, event, item_id=None, values=None):
+        """Add or update an event in the Treeview."""
         if not event or not event.strip():
             print("Empty event attempted to be added, skipping.")
             return
-        
-        # Log Treeview content and remove empty rows before adding
-        # print("Treeview content before adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+
+        # Remove empty rows before inserting
         for item in self.left_treeview.get_children():
             if not self.left_treeview.item(item, "text").strip():
                 self.left_treeview.delete(item)
                 print("Empty row removed:", item)
-        
-        item = self.left_treeview.insert("", tk.END, text=event)
+
+        # Update existing item
+        if item_id:
+            self.left_treeview.item(item_id, text=event, values=values or [])
+            print(f"Updated Treeview item: {event}")
+            return
+
+        # Insert new item
+        item = self.left_treeview.insert("", tk.END, text=event, values=values or [])
+
+        # Handle checkpoints
         if "Checkpoint" in event:
             checkpoint_name = event.split("Checkpoint: ")[1]
             self.checkpoints[checkpoint_name] = self.left_treeview.index(item)
             print(f"Checkpoint '{checkpoint_name}' added at index {self.checkpoints[checkpoint_name]}")
+
+        # Optional: Debug Treeview content
         # print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
+
     def open_ocr_window_wrapper(self):
-        """Open the OCR event window."""
         open_ocr_window(self, self.add_event_to_treeview, self.variables)
+
 
     def open_if_window_wrapper(self):
         """Open the If condition window with updated variables."""

@@ -60,7 +60,6 @@ class DraggableTreeview(ttk.Treeview):
 
 
     def open_edit_dialog(self, event):
-        """Open a dialog to edit structured items or mouse actions."""
         import re
         import ast
 
@@ -78,10 +77,75 @@ class DraggableTreeview(ttk.Treeview):
 
         full_text = self.item(item_id, "text").strip()
 
-        # ✅ NEW BLOCK: handle mouse action with optional coordinate removal
+        if full_text.startswith("OCR Search - Area:"):
+            try:
+                values = self.item(item_id, "values")
+                coords, wait, variable, content = values
+                initial_values = {
+                    "coords": coords,
+                    "wait_time": float(wait),
+                    "variable_name": variable,
+                    "variable_content": content,
+                    "item_id": item_id
+                }
+                from ai_stuff import open_ocr_window
+                open_ocr_window(
+                    self.master.master,
+                    self.master.master.add_event_to_treeview,
+                    self.master.master.variables,
+                    edit_mode=True,
+                    initial_values=initial_values
+                )
+                return
+            except Exception as e:
+                print(f"Error parsing OCR values: {e}")
+
+        if full_text.startswith("Search Pattern - Image:"):
+            try:
+                values = self.item(item_id, "values")
+                print("[DEBUG] Pattern Search values:", values)
+                (
+                    pattern_image_base64,
+                    search_coords,
+                    succeed_goto,
+                    fail_goto,
+                    click,
+                    wait_time,
+                    threshold,
+                    scene_change,
+                    succeed_notify,
+                    succeed_notify_value,
+                    fail_notify,
+                    fail_notify_value
+                ) = values
+
+                context = {
+                    "item_id": item_id,
+                    "pattern_image_base64": pattern_image_base64,
+                    "search_coords": search_coords,
+                    "pattern_coords": None,  # You can enhance this later
+                    "search_image_base64": None,
+                    "succeed_goto": succeed_goto,
+                    "fail_goto": fail_goto,
+                    "click": click == "True",
+                    "wait_time": float(wait_time),
+                    "threshold": float(threshold),
+                    "scene_change": scene_change == "True",
+                    "succeed_notify": succeed_notify == "True",
+                    "succeed_notify_value": succeed_notify_value,
+                    "fail_notify": fail_notify == "True",
+                    "fail_notify_value": fail_notify_value,
+                }
+
+                self.master.master.editing_pattern_context = context
+                from ai_stuff import open_pattern_window
+                open_pattern_window(self.master.master, self.master.master.add_event_to_treeview)
+                return
+            except Exception as e:
+                print(f"Error parsing Pattern Search values: {e}")
+
         action_only = full_text.split(" - ", 1)[-1].strip()
         if is_mouse_action_with_coordinates(action_only):
-            print("itsit")
             edit_win = tk.Toplevel(self)
             edit_win.title("Edit Mouse Action")
             edit_win.grab_set()
@@ -111,7 +175,6 @@ class DraggableTreeview(ttk.Treeview):
             tk.Button(edit_win, text="Cancel", command=edit_win.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
             return
 
-        # Handle simple time-based entries like "0.123 - Some Action"
         if " - " in full_text and not ":" in full_text:
             time_part, content = full_text.split(" - ", 1)
             simple_win = tk.Toplevel(self)
@@ -140,7 +203,6 @@ class DraggableTreeview(ttk.Treeview):
             tk.Button(simple_win, text="Cancel", command=simple_win.destroy).grid(row=2, column=1, pady=6, sticky="e")
             return
 
-        # Advanced case: label: value pairs
         def safe_split(s):
             parts = []
             current = ""
@@ -190,7 +252,6 @@ class DraggableTreeview(ttk.Treeview):
 
         tk.Button(edit_win, text="Save", command=save_advanced).grid(row=len(entries), column=0, pady=10)
         tk.Button(edit_win, text="Cancel", command=edit_win.destroy).grid(row=len(entries), column=1, pady=10, sticky="e")
-
 
 
     def on_click(self, event):

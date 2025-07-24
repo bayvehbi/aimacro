@@ -37,7 +37,7 @@ class RegionCapture:
         return img, {"start": (x1, y1), "end": (x2, y2)}
 
 
-def open_ocr_window(parent, coords_callback, variables):
+def open_ocr_window(parent, coords_callback, variables, edit_mode=False, initial_values=None):
     ocr_window = Toplevel(parent)
     ocr_window.title("OCR Settings")
     screen_width = ocr_window.winfo_screenwidth()
@@ -47,23 +47,45 @@ def open_ocr_window(parent, coords_callback, variables):
     ocr_window.geometry(f"{window_width}x{window_height}")
     ocr_window.attributes("-topmost", True)
 
-    Label(ocr_window, text="Define OCR Area").pack(pady=5)
-    preview_label = Label(ocr_window, text="No area selected yet")
-    Button(ocr_window, text="Select Area", command=lambda: select_area(ocr_window, preview_label, "ocr")).pack(pady=5)
+    tk.Label(ocr_window, text="Define OCR Area").pack(pady=5)
+    preview_label = tk.Label(ocr_window, text="No area selected yet")
+    tk.Button(ocr_window, text="Select Area", command=lambda: select_area(ocr_window, preview_label, "ocr")).pack(pady=5)
     preview_label.pack(pady=5)
 
-    Label(ocr_window, text="Define OCR content").pack(pady=5)
-    variable_message = Entry(ocr_window)
+    tk.Label(ocr_window, text="Define OCR content").pack(pady=5)
+    variable_message = tk.Entry(ocr_window)
     variable_message.pack(pady=5)
 
-    Label(ocr_window, text="Wait Time (seconds):").pack(pady=5)
-    wait_time_entry = Entry(ocr_window)
+    tk.Label(ocr_window, text="Wait Time (seconds):").pack(pady=5)
+    wait_time_entry = tk.Entry(ocr_window)
     wait_time_entry.insert(0, "5")
     wait_time_entry.pack(pady=5)
 
-    Label(ocr_window, text="Variable Name:").pack(pady=5)
-    variable_entry = Entry(ocr_window)
+    tk.Label(ocr_window, text="Variable Name:").pack(pady=5)
+    variable_entry = tk.Entry(ocr_window)
     variable_entry.pack(pady=5)
+
+    if edit_mode and initial_values:
+        preview_label.config(text=f"Selected: {initial_values['coords']}")
+        try:
+            # Allow passing either a tuple or a string representation
+            ocr_window.ocr_coords = (
+                initial_values["coords"]
+                if isinstance(initial_values["coords"], tuple)
+                else eval(initial_values["coords"])
+            )
+        except Exception as e:
+            print(f"Failed to parse coords: {e}")
+            ocr_window.ocr_coords = (0, 0, 0, 0)
+
+        wait_time_entry.delete(0, tk.END)
+        wait_time_entry.insert(0, str(initial_values["wait_time"]))
+
+        variable_entry.delete(0, tk.END)
+        variable_entry.insert(0, initial_values["variable_name"])
+
+        variable_message.delete(0, tk.END)
+        variable_message.insert(0, initial_values["variable_content"])
 
     def save_ocr_event():
         try:
@@ -83,15 +105,21 @@ def open_ocr_window(parent, coords_callback, variables):
 
             coords = ocr_window.ocr_coords
             event = f"OCR Search - Area: {coords}, Wait: {wait_time}s, Variable: {variable_name}, Variable Content: {variable_content}"
-            coords_callback(event)
-            print(f"Added OCR event: {event}")
+            values = (coords, wait_time, variable_name, variable_content)
+
+            if edit_mode and initial_values and "item_id" in initial_values:
+                coords_callback(event, item_id=initial_values["item_id"], values=values)
+            else:
+                coords_callback(event, values=values)
+
+            print(f"{'Updated' if edit_mode else 'Added'} OCR event: {event}")
             ocr_window.destroy()
 
         except ValueError:
             print("Invalid wait time, please enter a number")
             tk.messagebox.showerror("Invalid Input", "Please enter a valid number for wait time.")
 
-    Button(ocr_window, text="OK", command=save_ocr_event).pack(pady=10)
+    tk.Button(ocr_window, text="OK", command=save_ocr_event).pack(pady=10)
 
         
 def open_if_window(parent, coords_callback, variables):
@@ -240,7 +268,10 @@ def open_checkpoint_window(parent, coords_callback):
 
 def open_pattern_window(parent, coords_callback):
     from functools import partial
-
+    import base64
+    from PIL import Image, ImageTk
+    import io
+    import ast
 
     def toggle_notification(mode):
         dropdown = succeed_notification_dropdown if mode == 'succeed' else fail_notification_dropdown
@@ -252,6 +283,23 @@ def open_pattern_window(parent, coords_callback):
             update_image_from_coords(pattern_window, pattern_window.search_coords, pattern_preview_label, "pattern")
             threshold_entry.delete(0, tk.END)
             threshold_entry.insert(0, "0.99")
+
+    def render_image(label, image_base64):
+        try:
+            decoded_data = base64.b64decode(image_base64)
+            image = Image.open(io.BytesIO(decoded_data))
+            image.thumbnail((200, 200))
+            photo = ImageTk.PhotoImage(image)
+            label.config(image=photo)
+            label.image = photo
+        except Exception as e:
+            print("Failed to render image:", e)
+
+    def restore_previous_images():
+        if pattern_window.pattern_image_base64:
+            render_image(pattern_preview_label, pattern_window.pattern_image_base64)
+        if pattern_window.search_image_base64:
+            render_image(search_preview_label, pattern_window.search_image_base64)
 
     pattern_window = Toplevel(parent)
     pattern_window.title("Search for Pattern")
@@ -320,6 +368,79 @@ def open_pattern_window(parent, coords_callback):
     threshold_entry.insert(0, "0.7")
     threshold_entry.pack(pady=5)
 
+    if hasattr(parent, "editing_pattern_context"):
+        ctx = parent.editing_pattern_context
+
+        pattern_window.edit_mode = True
+        pattern_window.item_id = ctx.get("item_id")
+        pattern_window.pattern_image_base64 = ctx.get("pattern_image_base64")
+        print(f"1: {ctx.get('pattern_image_base64')}")
+        pattern_window.pattern_coords = ctx.get("pattern_coords")
+        pattern_window.search_coords = ctx.get("search_coords")
+        import ast
+        search_coords_parsed = ast.literal_eval(pattern_window.search_coords)
+        start = search_coords_parsed['start']
+        end = search_coords_parsed['end']
+        x1, y1 = min(start[0], end[0]), min(start[1], end[1])
+        width = abs(end[0] - start[0])
+        height = abs(end[1] - start[1])
+        img = pyautogui.screenshot(region=(x1, y1, width, height))
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        search_image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        pattern_window.search_image_base64 = search_image_base64
+        print(f"2: {ctx.get('search_coords')}")
+
+        wait_time_entry.delete(0, tk.END)
+        wait_time_entry.insert(0, str(ctx.get("wait_time", "5")))
+
+        threshold_entry.delete(0, tk.END)
+        threshold_entry.insert(0, str(ctx.get("threshold", "0.7")))
+
+        click_var.set(ctx.get("click", False))
+        make_change_detect.set(ctx.get("scene_change", False))
+
+        succeed_checkpoint_dropdown.set(ctx.get("succeed_goto", "Next"))
+        fail_checkpoint_dropdown.set(ctx.get("fail_goto", "Next"))
+
+        succeed_send_var.set(ctx.get("succeed_notify", False))
+        succeed_notification_dropdown.set(ctx.get("succeed_notify_value", "None"))
+        succeed_notification_dropdown.config(state="readonly" if succeed_send_var.get() else "disabled")
+
+        fail_send_var.set(ctx.get("fail_notify", False))
+        fail_notification_dropdown.set(ctx.get("fail_notify_value", "None"))
+        fail_notification_dropdown.config(state="readonly" if fail_send_var.get() else "disabled")
+
+        # Ensure search image is updated from coordinates if available
+        coords_for_update = None
+        if pattern_window.search_coords:
+            if pattern_window.search_coords == 'Full Screen':
+                coords_for_update = (0, 0, screen_width, screen_height)
+            elif isinstance(pattern_window.search_coords, dict):
+                start = pattern_window.search_coords.get('start')
+                end = pattern_window.search_coords.get('end')
+                if start and end:
+                    x1, y1 = start
+                    x2, y2 = end
+                    coords_for_update = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+            elif isinstance(pattern_window.search_coords, str):
+                try:
+                    parsed = ast.literal_eval(pattern_window.search_coords)
+                    if isinstance(parsed, tuple) and len(parsed) == 4:
+                        coords_for_update = parsed
+                except Exception as e:
+                    print("Failed to parse search_coords:", e)
+            elif isinstance(pattern_window.search_coords, tuple) and len(pattern_window.search_coords) == 4:
+                coords_for_update = pattern_window.search_coords
+
+            if coords_for_update:
+                try:
+                    update_image_from_coords(pattern_window, coords_for_update, search_preview_label, "search")
+                except Exception as e:
+                    print("Failed to update search image from coords:", e)
+
+        restore_previous_images()
+
     def save_pattern_event():
         try:
             wait_time = float(wait_time_entry.get())
@@ -340,7 +461,26 @@ def open_pattern_window(parent, coords_callback):
             if fail_send_var.get() and fail_notification_dropdown.get() != "None":
                 event += f", Fail Notification: {fail_notification_dropdown.get()}"
 
-            coords_callback(event)
+            values = (
+                pattern_window.pattern_image_base64,
+                pattern_window.search_coords or 'Full Screen',
+                succeed_checkpoint_dropdown.get(),
+                fail_checkpoint_dropdown.get(),
+                str(click_var.get()),
+                str(wait_time),
+                str(threshold),
+                str(make_change_detect.get()),
+                str(succeed_send_var.get()),
+                succeed_notification_dropdown.get(),
+                str(fail_send_var.get()),
+                fail_notification_dropdown.get()
+            )
+
+            if hasattr(pattern_window, "edit_mode") and pattern_window.edit_mode and hasattr(pattern_window, "item_id"):
+                coords_callback(event, item_id=pattern_window.item_id, values=values)
+            else:
+                coords_callback(event, values=values)
+
             print(f"Added Pattern event: {event}")
             pattern_window.destroy()
 
@@ -349,7 +489,7 @@ def open_pattern_window(parent, coords_callback):
             pattern_window.destroy()
 
     Button(pattern_window, text="OK", command=save_pattern_event).pack(pady=10)
-
+    
 def update_pattern_preview_image(img, preview_label):
     resized = img.resize((300, 200), Image.LANCZOS)
     preview_image = ImageTk.PhotoImage(resized)
@@ -360,6 +500,9 @@ def update_image_from_coords(window, coords, label, target):
     if not coords:
         print(f"No coordinates for {target}")
         return
+    import ast
+    if isinstance(coords, str):
+        coords = ast.literal_eval(coords)
     x1, y1 = coords["start"]
     x2, y2 = coords["end"]
     if x2 <= x1 or y2 <= y1:
