@@ -272,6 +272,8 @@ def open_pattern_window(parent, coords_callback):
     from PIL import Image, ImageTk
     import io
     import ast
+    import tkinter as tk
+    from tkinter import Toplevel, Label, Entry, Button, ttk
 
     def toggle_notification(mode):
         dropdown = succeed_notification_dropdown if mode == 'succeed' else fail_notification_dropdown
@@ -315,21 +317,52 @@ def open_pattern_window(parent, coords_callback):
     pattern_window.geometry(f"{window_width}x{screen_height}")
     pattern_window.attributes("-topmost", True)
 
-    Label(pattern_window, text="Define Search Area").pack(pady=5)
-    search_preview_label = Label(pattern_window, text="No search area selected yet")
-    Button(pattern_window, text="Select Search Area", command=partial(select_area, pattern_window, search_preview_label, "search")).pack(pady=5)
+    # SCROLLABLE + CENTERED CONTENT START
+    canvas = tk.Canvas(pattern_window)
+    v_scrollbar = tk.Scrollbar(pattern_window, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=v_scrollbar.set)
+
+    v_scrollbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    container = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=container, anchor="nw", tags="container")
+
+    scrollable_frame = tk.Frame(container)
+    scrollable_frame.pack(anchor="center", pady=20)
+
+    def on_frame_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    container.bind("<Configure>", on_frame_configure)
+
+    def on_canvas_resize(event):
+        canvas.itemconfig("container", width=event.width)
+
+    canvas.bind("<Configure>", on_canvas_resize)
+
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    # SCROLLABLE + CENTERED CONTENT END
+
+    # All UI widgets go in scrollable_frame from here on:
+    Label(scrollable_frame, text="Define Search Area").pack(pady=5)
+    search_preview_label = Label(scrollable_frame, text="No search area selected yet")
+    Button(scrollable_frame, text="Select Search Area", command=partial(select_area, pattern_window, search_preview_label, "search")).pack(pady=5)
     search_preview_label.pack(pady=5)
 
-    pattern_preview_label = Label(pattern_window, text="No pattern selected yet")
-    Button(pattern_window, text="Select Pattern", command=partial(select_area, pattern_window, pattern_preview_label, "pattern")).pack(pady=5)
-    Button(pattern_window, text="Recapture Pattern Image", command=lambda: update_image_from_coords(pattern_window, pattern_window.pattern_coords, pattern_preview_label, "pattern")).pack(pady=5)
+    pattern_preview_label = Label(scrollable_frame, text="No pattern selected yet")
+    Button(scrollable_frame, text="Select Pattern", command=partial(select_area, pattern_window, pattern_preview_label, "pattern")).pack(pady=5)
+    Button(scrollable_frame, text="Recapture Pattern Image", command=lambda: update_image_from_coords(pattern_window, pattern_window.pattern_coords, pattern_preview_label, "pattern")).pack(pady=5)
     pattern_preview_label.pack(pady=5)
 
     copy_to_pattern = tk.BooleanVar()
-    tk.Checkbutton(pattern_window, text="Copy search to pattern", variable=copy_to_pattern, command=on_copy_search_to_pattern).pack(pady=5)
+    tk.Checkbutton(scrollable_frame, text="Copy search to pattern", variable=copy_to_pattern, command=on_copy_search_to_pattern).pack(pady=5)
 
-    Label(pattern_window, text="If Found, Succeed Go To:").pack(pady=5)
-    succeed_frame = tk.Frame(pattern_window)
+    Label(scrollable_frame, text="If Found, Succeed Go To:").pack(pady=5)
+    succeed_frame = tk.Frame(scrollable_frame)
     succeed_frame.pack(pady=5)
     succeed_send_var = tk.BooleanVar()
     tk.Checkbutton(succeed_frame, text="Send Notification", variable=succeed_send_var, command=lambda: toggle_notification('succeed')).grid(row=0, column=0, padx=5)
@@ -340,8 +373,8 @@ def open_pattern_window(parent, coords_callback):
     succeed_notification_dropdown.set("None")
     succeed_notification_dropdown.grid(row=0, column=2, padx=5)
 
-    Label(pattern_window, text="If Not Found, Fail Go To:").pack(pady=5)
-    fail_frame = tk.Frame(pattern_window)
+    Label(scrollable_frame, text="If Not Found, Fail Go To:").pack(pady=5)
+    fail_frame = tk.Frame(scrollable_frame)
     fail_frame.pack(pady=5)
     fail_send_var = tk.BooleanVar()
     tk.Checkbutton(fail_frame, text="Send Notification", variable=fail_send_var, command=lambda: toggle_notification('fail')).grid(row=0, column=0, padx=5)
@@ -353,18 +386,18 @@ def open_pattern_window(parent, coords_callback):
     fail_notification_dropdown.grid(row=0, column=2, padx=5)
 
     make_change_detect = tk.BooleanVar()
-    tk.Checkbutton(pattern_window, text="Search change at area", variable=make_change_detect).pack(pady=5)
+    tk.Checkbutton(scrollable_frame, text="Search change at area", variable=make_change_detect).pack(pady=5)
 
     click_var = tk.BooleanVar()
-    tk.Checkbutton(pattern_window, text="Click if Found", variable=click_var).pack(pady=5)
+    tk.Checkbutton(scrollable_frame, text="Click if Found", variable=click_var).pack(pady=5)
 
-    Label(pattern_window, text="Wait Time (seconds):").pack(pady=5)
-    wait_time_entry = Entry(pattern_window)
+    Label(scrollable_frame, text="Wait Time (seconds):").pack(pady=5)
+    wait_time_entry = Entry(scrollable_frame)
     wait_time_entry.insert(0, "5")
     wait_time_entry.pack(pady=5)
 
-    Label(pattern_window, text="Threshold:").pack(pady=5)
-    threshold_entry = Entry(pattern_window)
+    Label(scrollable_frame, text="Threshold:").pack(pady=5)
+    threshold_entry = Entry(scrollable_frame)
     threshold_entry.insert(0, "0.7")
     threshold_entry.pack(pady=5)
 
@@ -374,10 +407,9 @@ def open_pattern_window(parent, coords_callback):
         pattern_window.edit_mode = True
         pattern_window.item_id = ctx.get("item_id")
         pattern_window.pattern_image_base64 = ctx.get("pattern_image_base64")
-        print(f"1: {ctx.get('pattern_image_base64')}")
         pattern_window.pattern_coords = ctx.get("pattern_coords")
         pattern_window.search_coords = ctx.get("search_coords")
-        import ast
+        import pyautogui
         search_coords_parsed = ast.literal_eval(pattern_window.search_coords)
         start = search_coords_parsed['start']
         end = search_coords_parsed['end']
@@ -389,7 +421,6 @@ def open_pattern_window(parent, coords_callback):
         img.save(buffered, format="PNG")
         search_image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
         pattern_window.search_image_base64 = search_image_base64
-        print(f"2: {ctx.get('search_coords')}")
 
         wait_time_entry.delete(0, tk.END)
         wait_time_entry.insert(0, str(ctx.get("wait_time", "5")))
@@ -411,7 +442,6 @@ def open_pattern_window(parent, coords_callback):
         fail_notification_dropdown.set(ctx.get("fail_notify_value", "None"))
         fail_notification_dropdown.config(state="readonly" if fail_send_var.get() else "disabled")
 
-        # Ensure search image is updated from coordinates if available
         coords_for_update = None
         if pattern_window.search_coords:
             if pattern_window.search_coords == 'Full Screen':
@@ -440,6 +470,7 @@ def open_pattern_window(parent, coords_callback):
                     print("Failed to update search image from coords:", e)
 
         restore_previous_images()
+
 
     def save_pattern_event():
         try:
@@ -488,7 +519,7 @@ def open_pattern_window(parent, coords_callback):
             print(f"Invalid input: {e}")
             pattern_window.destroy()
 
-    Button(pattern_window, text="OK", command=save_pattern_event).pack(pady=10)
+    Button(scrollable_frame, text="OK", command=save_pattern_event).pack(pady=10)
     
 def update_pattern_preview_image(img, preview_label):
     resized = img.resize((300, 200), Image.LANCZOS)
