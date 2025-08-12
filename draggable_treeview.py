@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import re
+from search_pattern_window import open_pattern_window
 
 class DraggableTreeview(ttk.Treeview):
     def __init__(self, master, accepted_sources=None, allow_drop=True, allow_self_drag=True, **kwargs):
@@ -61,15 +62,14 @@ class DraggableTreeview(ttk.Treeview):
 
     def open_edit_dialog(self, event):
         item_id = self.identify_row(event.y)
+        item_idx = self.index(self.identify_row(event.y))
         if item_id:
             item_text = self.item(item_id, "text")
-            element_number = self.index(item_id)  # Get the element number
             pattern = r'(\w[\w\s]+):\s*((?:\{.*?\}|\(.*?\)|[^,])+)(?:,|$)'
             matches = re.findall(pattern, item_text)
             parsed_list = [(key.strip(), value.strip()) for key, value in matches]
             parsed_dict = dict(parsed_list)
-            parsed_dict["element_number"] = element_number  # Add element_number to initial_values
-            from ai_stuff import open_pattern_window, open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
+            from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
 
             def map_pattern_keys(d):
                 # Map to the exact keys expected by open_pattern_window
@@ -87,7 +87,7 @@ class DraggableTreeview(ttk.Treeview):
                     # Optionally add notification flags if present
                     "succeed_notify": "Succeed Notification" in d and d.get("Succeed Notification") != "None",
                     "fail_notify": "Fail Notification" in d and d.get("Fail Notification") != "None",
-                    "element_number": d.get("element_number")  # Pass element_number
+                    "item_id": item_idx  # Use item_id if not present
                 }
 
             def map_ocr_keys(d):
@@ -95,8 +95,7 @@ class DraggableTreeview(ttk.Treeview):
                     "coords": d.get("Area"),
                     "wait_time": d.get("Wait", "5.0s").replace("s", ""),
                     "variable_name": d.get("Variable"),
-                    "variable_content": d.get("Variable Content"),
-                    "element_number": d.get("element_number")  # Pass element_number
+                    "variable_content": d.get("Variable Content")
                 }
 
             if item_text.startswith("Search Pattern"):
