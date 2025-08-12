@@ -5,7 +5,8 @@ from monitor_utils import MacroRecorder, ShortcutHandler
 import time
 from PIL import Image, ImageTk
 from draggable_treeview import DraggableTreeview
-from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_pattern_window, open_wait_window
+from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
+from search_pattern_window import open_pattern_window
 import base64
 import io
 from PIL import Image, ImageTk
