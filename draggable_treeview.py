@@ -60,199 +60,54 @@ class DraggableTreeview(ttk.Treeview):
 
 
     def open_edit_dialog(self, event):
-        import re
-        import ast
-
-        def is_mouse_action_with_coordinates(text):
-            patterns = [
-                r"Mouse Button\.left (pressed|released) at: \(\d+, \d+\)",
-                r"Mouse Button\.right (pressed|released) at: \(\d+, \d+\)",
-                r"Mouse scrolled (up|down) at: \(\d+, \d+\)"
-            ]
-            return any(re.match(p, text) for p in patterns)
-
         item_id = self.identify_row(event.y)
-        if not item_id:
-            return
+        if item_id:
+            item_text = self.item(item_id, "text")
+            pattern = r'(\w[\w\s]+):\s*((?:\{.*?\}|\(.*?\)|[^,])+)(?:,|$)'
+            matches = re.findall(pattern, item_text)
+            parsed_list = [(key.strip(), value.strip()) for key, value in matches]
+            parsed_dict = dict(parsed_list)
+            from ai_stuff import open_pattern_window, open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
 
-        full_text = self.item(item_id, "text").strip()
-
-        if full_text.startswith("OCR Search - Area:"):
-            try:
-                values = self.item(item_id, "values")
-                coords, wait, variable, content = values
-                initial_values = {
-                    "coords": coords,
-                    "wait_time": float(wait),
-                    "variable_name": variable,
-                    "variable_content": content,
-                    "item_id": item_id
-                }
-                from ai_stuff import open_ocr_window
-                open_ocr_window(
-                    self.master.master,
-                    self.master.master.add_event_to_treeview,
-                    self.master.master.variables,
-                    edit_mode=True,
-                    initial_values=initial_values
-                )
-                return
-            except Exception as e:
-                print(f"Error parsing OCR values: {e}")
-
-        if full_text.startswith("Search Pattern - Image:"):
-            try:
-                values = self.item(item_id, "values")
-                print("[DEBUG] Pattern Search values:", values)
-                (
-                    pattern_image_base64,
-                    search_coords,
-                    succeed_goto,
-                    fail_goto,
-                    click,
-                    wait_time,
-                    threshold,
-                    scene_change,
-                    succeed_notify,
-                    succeed_notify_value,
-                    fail_notify,
-                    fail_notify_value
-                ) = values
-
-                context = {
-                    "item_id": item_id,
-                    "pattern_image_base64": pattern_image_base64,
-                    "search_coords": search_coords,
-                    "pattern_coords": None,  # You can enhance this later
-                    "search_image_base64": None,
-                    "succeed_goto": succeed_goto,
-                    "fail_goto": fail_goto,
-                    "click": click == "True",
-                    "wait_time": float(wait_time),
-                    "threshold": float(threshold),
-                    "scene_change": scene_change == "True",
-                    "succeed_notify": succeed_notify == "True",
-                    "succeed_notify_value": succeed_notify_value,
-                    "fail_notify": fail_notify == "True",
-                    "fail_notify_value": fail_notify_value,
+            def map_pattern_keys(d):
+                # Map to the exact keys expected by open_pattern_window
+                return {
+                    "pattern_image_base64": d.get("Image"),
+                    "search_coords": d.get("Search Area"),
+                    "succeed_goto": d.get("Succeed Go To"),
+                    "fail_goto": d.get("Fail Go To"),
+                    "click": d.get("Click"),
+                    "wait_time": d.get("Wait", "5.0s").replace("s", ""),
+                    "threshold": d.get("Threshold"),
+                    "scene_change": d.get("Scene Change"),
+                    "succeed_notify_value": d.get("Succeed Notification"),
+                    "fail_notify_value": d.get("Fail Notification"),
+                    # Optionally add notification flags if present
+                    "succeed_notify": "Succeed Notification" in d and d.get("Succeed Notification") != "None",
+                    "fail_notify": "Fail Notification" in d and d.get("Fail Notification") != "None"
                 }
 
-                self.master.master.editing_pattern_context = context
-                from ai_stuff import open_pattern_window
-                open_pattern_window(self.master.master, self.master.master.add_event_to_treeview)
-                return
-            except Exception as e:
-                print(f"Error parsing Pattern Search values: {e}")
+            def map_ocr_keys(d):
+                return {
+                    "coords": d.get("Area"),
+                    "wait_time": d.get("Wait", "5.0s").replace("s", ""),
+                    "variable_name": d.get("Variable"),
+                    "variable_content": d.get("Variable Content")
+                }
 
-        action_only = full_text.split(" - ", 1)[-1].strip()
-        if is_mouse_action_with_coordinates(action_only):
-            edit_win = tk.Toplevel(self)
-            edit_win.title("Edit Mouse Action")
-            edit_win.grab_set()
-            edit_win.resizable(False, False)
+            if item_text.startswith("Search Pattern"):
+                open_pattern_window(self.master.master, lambda *args, **kwargs: None, initial_values=map_pattern_keys(parsed_dict))
+            elif item_text.startswith("OCR Search"):
+                open_ocr_window(self.master, lambda *args, **kwargs: None, variables={}, edit_mode=True, initial_values=map_ocr_keys(parsed_dict))
+            elif item_text.startswith("If"):
+                open_if_window(self.master, lambda *args, **kwargs: None, variables={}, initial_values=parsed_dict)
+            elif item_text.startswith("Checkpoint"):
+                open_checkpoint_window(self.master, lambda *args, **kwargs: None)
+            elif item_text.startswith("Wait"):
+                open_wait_window(self.master, lambda *args, **kwargs: None)
 
-            raw_var = tk.StringVar(value=full_text)
-            use_current_position = tk.BooleanVar(value=False)
 
-            tk.Label(edit_win, text="Mouse Action Text:").pack(padx=10, pady=(10, 4))
-            tk.Entry(edit_win, textvariable=raw_var, width=70).pack(padx=10, pady=4)
-
-            tk.Checkbutton(
-                edit_win,
-                text="Use current position (remove coordinates)",
-                variable=use_current_position
-            ).pack(padx=10, pady=4)
-
-            def save_mouse_action():
-                text = raw_var.get().strip()
-                if use_current_position.get():
-                    text = re.sub(r" at: \(\d+, \d+\)", "", text)
-                self.item(item_id, text=text)
-                print(f"Updated mouse action to: {text}")
-                edit_win.destroy()
-
-            tk.Button(edit_win, text="Save", command=save_mouse_action).pack(side=tk.LEFT, padx=10, pady=10)
-            tk.Button(edit_win, text="Cancel", command=edit_win.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
-            return
-
-        if " - " in full_text and not ":" in full_text:
-            time_part, content = full_text.split(" - ", 1)
-            simple_win = tk.Toplevel(self)
-            simple_win.title("Edit Item")
-            simple_win.grab_set()
-
-            time_var = tk.StringVar(value=time_part)
-            content_var = tk.StringVar(value=content)
-
-            tk.Label(simple_win, text="Time:").grid(row=0, column=0, sticky="e")
-            tk.Entry(simple_win, textvariable=time_var, width=10).grid(row=0, column=1)
-
-            tk.Label(simple_win, text="Text:").grid(row=1, column=0, sticky="e")
-            tk.Entry(simple_win, textvariable=content_var, width=50).grid(row=1, column=1)
-
-            def save_simple():
-                try:
-                    new_time = float(time_var.get())
-                    new_text = f"{new_time:.3f} - {content_var.get().strip()}"
-                    self.item(item_id, text=new_text)
-                    simple_win.destroy()
-                except:
-                    tk.messagebox.showerror("Invalid time", "Time must be a float.")
-
-            tk.Button(simple_win, text="Save", command=save_simple).grid(row=2, column=0, pady=6)
-            tk.Button(simple_win, text="Cancel", command=simple_win.destroy).grid(row=2, column=1, pady=6, sticky="e")
-            return
-
-        def safe_split(s):
-            parts = []
-            current = ""
-            depth = 0
-            for char in s:
-                if char == ',' and depth == 0:
-                    parts.append(current.strip())
-                    current = ""
-                else:
-                    current += char
-                    if char in "([{":
-                        depth += 1
-                    elif char in ")]}":
-                        depth -= 1
-            if current:
-                parts.append(current.strip())
-            return parts
-
-        pairs = safe_split(full_text)
-        key_value_pairs = []
-        for pair in pairs:
-            if ":" in pair:
-                key, val = pair.split(":", 1)
-                key_value_pairs.append((key.strip(), val.strip()))
-            else:
-                key_value_pairs.append((pair.strip(), ""))
-
-        edit_win = tk.Toplevel(self)
-        edit_win.title("Edit Structured Item")
-        edit_win.grab_set()
-        edit_win.resizable(False, False)
-
-        entries = []
-        for i, (key, val) in enumerate(key_value_pairs):
-            tk.Label(edit_win, text=key + ":").grid(row=i, column=0, sticky="e", padx=5, pady=3)
-            var = tk.StringVar(value=val)
-            entry = tk.Entry(edit_win, textvariable=var, width=60)
-            entry.grid(row=i, column=1, padx=5, pady=3)
-            entries.append((key, var))
-
-        def save_advanced():
-            new_parts = [f"{key}: {var.get().strip()}" for key, var in entries]
-            new_text = ", ".join(new_parts)
-            self.item(item_id, text=new_text)
-            print(f"Updated structured item to:\n{new_text}")
-            edit_win.destroy()
-
-        tk.Button(edit_win, text="Save", command=save_advanced).grid(row=len(entries), column=0, pady=10)
-        tk.Button(edit_win, text="Cancel", command=edit_win.destroy).grid(row=len(entries), column=1, pady=10, sticky="e")
-
+        
 
     def on_click(self, event):
         """Handle mouse click to initiate selection or drag."""
