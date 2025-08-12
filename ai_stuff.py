@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import Toplevel, Entry, Label, Button, ttk
 import pyautogui
 import base64
 from io import BytesIO
@@ -7,6 +6,11 @@ from PIL import Image, ImageTk
 from misc import send_to_grok_ocr
 import traceback
 from pynput import keyboard, mouse
+from functools import partial
+import base64
+import io
+import ast
+from tkinter import Toplevel, Label, Entry, Button, ttk
 
 class RegionCapture:
     def __init__(self):
@@ -266,14 +270,13 @@ def open_checkpoint_window(parent, coords_callback):
     Button(checkpoint_window, text="OK", command=save_checkpoint).pack(pady=10)
 
 
-def open_pattern_window(parent, coords_callback):
-    from functools import partial
-    import base64
-    from PIL import Image, ImageTk
-    import io
-    import ast
-    import tkinter as tk
-    from tkinter import Toplevel, Label, Entry, Button, ttk
+def open_pattern_window(parent, coords_callback, initial_values=None):
+    def set_bool_var(var, value):
+        if value is None:
+            return
+        if isinstance(value, str):
+            value = value.lower() in ("true", "1")
+        var.set(bool(value))
 
     def toggle_notification(mode):
         dropdown = succeed_notification_dropdown if mode == 'succeed' else fail_notification_dropdown
@@ -290,8 +293,10 @@ def open_pattern_window(parent, coords_callback):
         try:
             decoded_data = base64.b64decode(image_base64)
             image = Image.open(io.BytesIO(decoded_data))
-            image.thumbnail((200, 200))
-            photo = ImageTk.PhotoImage(image)
+            # Resize for preview only, do not change original
+            preview_img = image.copy()
+            preview_img = preview_img.resize((300, 200), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(preview_img)
             label.config(image=photo)
             label.image = photo
         except Exception as e:
@@ -401,81 +406,77 @@ def open_pattern_window(parent, coords_callback):
     threshold_entry.insert(0, "0.7")
     threshold_entry.pack(pady=5)
 
-    if hasattr(parent, "editing_pattern_context"):
-        ctx = parent.editing_pattern_context
+    def populate_fields_from_initial_values():
+        print(f"there is initial_values: {initial_values}")
+        # Images
+        print(f"pattern_image_base64: {initial_values}")
+        if initial_values.get('pattern_image_base64'):
+            render_image(pattern_preview_label, initial_values.get('pattern_image_base64'))
+            pattern_window.pattern_image_base64 = initial_values.get('pattern_image_base64')
+        if initial_values.get('search_coords'):
+            update_image_from_coords(pattern_window, initial_values.get('search_coords'), search_preview_label, "search")
+            pattern_window.search_coords = initial_values.get('search_coords')
+        if initial_values.get('search_image_base64'):
+            render_image(search_preview_label, initial_values.get('search_image_base64'))
+            pattern_window.search_image_base64 = initial_values.get('search_image_base64')
+        # Coords
+        if initial_values.get('pattern_coords'):
+            pattern_window.pattern_coords = initial_values.get('pattern_coords')
+        # Other fields
+        if initial_values.get('wait_time'):
+            wait_time_entry.delete(0, tk.END)
+            wait_time_entry.insert(0, str(initial_values.get('wait_time')))
+        if initial_values.get('threshold'):
+            threshold_entry.delete(0, tk.END)
+            threshold_entry.insert(0, str(initial_values.get('threshold')))
+        if initial_values.get('succeed_checkpoint'):
+            succeed_checkpoint_dropdown.set(initial_values.get('succeed_checkpoint'))
+        if initial_values.get('fail_checkpoint'):
+            fail_checkpoint_dropdown.set(initial_values.get('fail_checkpoint'))
+        set_bool_var(click_var, initial_values.get('click'))
+        set_bool_var(make_change_detect, initial_values.get('scene_change'))
+        set_bool_var(succeed_send_var, initial_values.get('succeed_send'))
+        if initial_values.get('succeed_notification'):
+            succeed_notification_dropdown.set(initial_values.get('succeed_notification'))
+        set_bool_var(fail_send_var, initial_values.get('fail_send'))
+        if initial_values.get('fail_notification'):
+            fail_notification_dropdown.set(initial_values.get('fail_notification'))
 
-        pattern_window.edit_mode = True
-        pattern_window.item_id = ctx.get("item_id")
-        pattern_window.pattern_image_base64 = ctx.get("pattern_image_base64")
-        pattern_window.pattern_coords = ctx.get("pattern_coords")
-        pattern_window.search_coords = ctx.get("search_coords")
-        import pyautogui
-        search_coords_parsed = ast.literal_eval(pattern_window.search_coords)
-        start = search_coords_parsed['start']
-        end = search_coords_parsed['end']
-        x1, y1 = min(start[0], end[0]), min(start[1], end[1])
-        width = abs(end[0] - start[0])
-        height = abs(end[1] - start[1])
-        img = pyautogui.screenshot(region=(x1, y1, width, height))
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-        search_image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-        pattern_window.search_image_base64 = search_image_base64
-
-        wait_time_entry.delete(0, tk.END)
-        wait_time_entry.insert(0, str(ctx.get("wait_time", "5")))
-
-        threshold_entry.delete(0, tk.END)
-        threshold_entry.insert(0, str(ctx.get("threshold", "0.7")))
-
-        click_var.set(ctx.get("click", False))
-        make_change_detect.set(ctx.get("scene_change", False))
-
-        succeed_checkpoint_dropdown.set(ctx.get("succeed_goto", "Next"))
-        fail_checkpoint_dropdown.set(ctx.get("fail_goto", "Next"))
-
-        succeed_send_var.set(ctx.get("succeed_notify", False))
-        succeed_notification_dropdown.set(ctx.get("succeed_notify_value", "None"))
-        succeed_notification_dropdown.config(state="readonly" if succeed_send_var.get() else "disabled")
-
-        fail_send_var.set(ctx.get("fail_notify", False))
-        fail_notification_dropdown.set(ctx.get("fail_notify_value", "None"))
-        fail_notification_dropdown.config(state="readonly" if fail_send_var.get() else "disabled")
-
-        coords_for_update = None
-        if pattern_window.search_coords:
-            if pattern_window.search_coords == 'Full Screen':
-                coords_for_update = (0, 0, screen_width, screen_height)
-            elif isinstance(pattern_window.search_coords, dict):
-                start = pattern_window.search_coords.get('start')
-                end = pattern_window.search_coords.get('end')
-                if start and end:
-                    x1, y1 = start
-                    x2, y2 = end
-                    coords_for_update = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
-            elif isinstance(pattern_window.search_coords, str):
-                try:
-                    parsed = ast.literal_eval(pattern_window.search_coords)
-                    if isinstance(parsed, tuple) and len(parsed) == 4:
-                        coords_for_update = parsed
-                except Exception as e:
-                    print("Failed to parse search_coords:", e)
-            elif isinstance(pattern_window.search_coords, tuple) and len(pattern_window.search_coords) == 4:
-                coords_for_update = pattern_window.search_coords
-
-            if coords_for_update:
-                try:
-                    update_image_from_coords(pattern_window, coords_for_update, search_preview_label, "search")
-                except Exception as e:
-                    print("Failed to update search image from coords:", e)
-
-        restore_previous_images()
+    if initial_values:
+        populate_fields_from_initial_values()
 
 
     def save_pattern_event():
         try:
+            # Update pattern_window attributes from UI widgets
+            pattern_window.pattern_image_base64 = pattern_window.pattern_image_base64  # already set by image selection
+            pattern_window.search_coords = pattern_window.search_coords  # already set by area selection
+            pattern_window.search_image_base64 = pattern_window.search_image_base64 if hasattr(pattern_window, 'search_image_base64') else None
+            pattern_window.pattern_coords = pattern_window.pattern_coords if hasattr(pattern_window, 'pattern_coords') else None
+
+            # Get values from UI widgets
             wait_time = float(wait_time_entry.get())
             threshold = float(threshold_entry.get())
+            succeed_checkpoint = succeed_checkpoint_dropdown.get()
+            fail_checkpoint = fail_checkpoint_dropdown.get()
+            click = click_var.get()
+            scene_change = make_change_detect.get()
+            succeed_send = succeed_send_var.get()
+            succeed_notification = succeed_notification_dropdown.get()
+            fail_send = fail_send_var.get()
+            fail_notification = fail_notification_dropdown.get()
+
+            # Update attributes
+            pattern_window.wait_time = wait_time
+            pattern_window.threshold = threshold
+            pattern_window.succeed_checkpoint = succeed_checkpoint
+            pattern_window.fail_checkpoint = fail_checkpoint
+            pattern_window.click = click
+            pattern_window.scene_change = scene_change
+            pattern_window.succeed_send = succeed_send
+            pattern_window.succeed_notification = succeed_notification
+            pattern_window.fail_send = fail_send
+            pattern_window.fail_notification = fail_notification
 
             if not pattern_window.pattern_coords or not pattern_window.pattern_image_base64:
                 print("Pattern area or image not set.")
@@ -484,27 +485,27 @@ def open_pattern_window(parent, coords_callback):
 
             event = f"Search Pattern - Image: {pattern_window.pattern_image_base64}, " \
                     f"Search Area: {pattern_window.search_coords or 'Full Screen'}, " \
-                    f"Succeed Go To: {succeed_checkpoint_dropdown.get()}, Fail Go To: {fail_checkpoint_dropdown.get()}, " \
-                    f"Click: {click_var.get()}, Wait: {wait_time}s, Threshold: {threshold}, Scene Change: {make_change_detect.get()}"
+                    f"Succeed Go To: {succeed_checkpoint}, Fail Go To: {fail_checkpoint}, " \
+                    f"Click: {click}, Wait: {wait_time}s, Threshold: {threshold}, Scene Change: {scene_change}"
 
-            if succeed_send_var.get() and succeed_notification_dropdown.get() != "None":
-                event += f", Succeed Notification: {succeed_notification_dropdown.get()}"
-            if fail_send_var.get() and fail_notification_dropdown.get() != "None":
-                event += f", Fail Notification: {fail_notification_dropdown.get()}"
+            if succeed_send and succeed_notification != "None":
+                event += f", Succeed Notification: {succeed_notification}"
+            if fail_send and fail_notification != "None":
+                event += f", Fail Notification: {fail_notification}"
 
             values = (
                 pattern_window.pattern_image_base64,
                 pattern_window.search_coords or 'Full Screen',
-                succeed_checkpoint_dropdown.get(),
-                fail_checkpoint_dropdown.get(),
-                str(click_var.get()),
+                succeed_checkpoint,
+                fail_checkpoint,
+                str(click),
                 str(wait_time),
                 str(threshold),
-                str(make_change_detect.get()),
-                str(succeed_send_var.get()),
-                succeed_notification_dropdown.get(),
-                str(fail_send_var.get()),
-                fail_notification_dropdown.get()
+                str(scene_change),
+                str(succeed_send),
+                succeed_notification,
+                str(fail_send),
+                fail_notification
             )
 
             if hasattr(pattern_window, "edit_mode") and pattern_window.edit_mode and hasattr(pattern_window, "item_id"):
