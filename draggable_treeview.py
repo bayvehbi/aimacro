@@ -63,10 +63,12 @@ class DraggableTreeview(ttk.Treeview):
         item_id = self.identify_row(event.y)
         if item_id:
             item_text = self.item(item_id, "text")
+            element_number = self.index(item_id)  # Get the element number
             pattern = r'(\w[\w\s]+):\s*((?:\{.*?\}|\(.*?\)|[^,])+)(?:,|$)'
             matches = re.findall(pattern, item_text)
             parsed_list = [(key.strip(), value.strip()) for key, value in matches]
             parsed_dict = dict(parsed_list)
+            parsed_dict["element_number"] = element_number  # Add element_number to initial_values
             from ai_stuff import open_pattern_window, open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
 
             def map_pattern_keys(d):
@@ -84,7 +86,8 @@ class DraggableTreeview(ttk.Treeview):
                     "fail_notify_value": d.get("Fail Notification"),
                     # Optionally add notification flags if present
                     "succeed_notify": "Succeed Notification" in d and d.get("Succeed Notification") != "None",
-                    "fail_notify": "Fail Notification" in d and d.get("Fail Notification") != "None"
+                    "fail_notify": "Fail Notification" in d and d.get("Fail Notification") != "None",
+                    "element_number": d.get("element_number")  # Pass element_number
                 }
 
             def map_ocr_keys(d):
@@ -92,7 +95,8 @@ class DraggableTreeview(ttk.Treeview):
                     "coords": d.get("Area"),
                     "wait_time": d.get("Wait", "5.0s").replace("s", ""),
                     "variable_name": d.get("Variable"),
-                    "variable_content": d.get("Variable Content")
+                    "variable_content": d.get("Variable Content"),
+                    "element_number": d.get("element_number")  # Pass element_number
                 }
 
             if item_text.startswith("Search Pattern"):
