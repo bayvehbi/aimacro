@@ -265,9 +265,9 @@ def open_pattern_window(
                 fail_notification
             )
 
-            if item_id:
-                print(f"edit mode active for item_id: {pattern_window.item_id}")
-                coords_callback(event, item_id=pattern_window.item_id, values=values)
+            if item_id is not None:
+                print(f"edit mode (from initial_values), item_id: {item_id}")
+                coords_callback(event, item_id=item_id, values=values)
             else:
                 print("edit mode not active, calling coords_callback without item_id")
                 coords_callback(event, values=values)
