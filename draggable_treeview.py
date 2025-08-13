@@ -3,6 +3,7 @@ from tkinter import ttk
 import re
 from search_pattern_window import open_pattern_window
 from image_ai_window import open_image_ai_window
+from if_window import open_if_window
 
 class DraggableTreeview(ttk.Treeview):
     def __init__(self, master, accepted_sources=None, allow_drop=True, allow_self_drag=True, **kwargs):
@@ -70,7 +71,7 @@ class DraggableTreeview(ttk.Treeview):
             matches = re.findall(pattern, item_text)
             parsed_list = [(key.strip(), value.strip()) for key, value in matches]
             parsed_dict = dict(parsed_list)
-            from ai_stuff import open_if_window, open_checkpoint_window, open_wait_window
+            from ai_stuff import open_checkpoint_window, open_wait_window
 
             def map_pattern_keys(d):
                 # Map to the exact keys expected by open_pattern_window
