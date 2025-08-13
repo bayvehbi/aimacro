@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import re
 from search_pattern_window import open_pattern_window
+from image_ai import open_image_ai_window
 
 class DraggableTreeview(ttk.Treeview):
     def __init__(self, master, accepted_sources=None, allow_drop=True, allow_self_drag=True, **kwargs):
@@ -69,7 +70,7 @@ class DraggableTreeview(ttk.Treeview):
             matches = re.findall(pattern, item_text)
             parsed_list = [(key.strip(), value.strip()) for key, value in matches]
             parsed_dict = dict(parsed_list)
-            from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
+            from ai_stuff import open_if_window, open_checkpoint_window, open_wait_window
 
             def map_pattern_keys(d):
                 # Map to the exact keys expected by open_pattern_window
@@ -90,12 +91,14 @@ class DraggableTreeview(ttk.Treeview):
                     "item_id": item_idx  # Use item_id if not present
                 }
 
-            def map_ocr_keys(d):
+            def map_image_ai_keys(d):
                 return {
                     "coords": d.get("Area"),
                     "wait_time": d.get("Wait", "5.0s").replace("s", ""),
                     "variable_name": d.get("Variable"),
-                    "variable_content": d.get("Variable Content")
+                    "variable_content": d.get("Variable Content"),
+                    "item_id": item_idx  # Use item_id if not present
+
                 }
 
             if item_text.startswith("Search Pattern"):
@@ -106,8 +109,15 @@ class DraggableTreeview(ttk.Treeview):
                     self.master.master.add_event_to_treeview,  # real updater
                     initial_values=iv
             )
-            elif item_text.startswith("OCR Search"):
-                open_ocr_window(self.master, lambda *args, **kwargs: None, variables={}, edit_mode=True, initial_values=map_ocr_keys(parsed_dict))
+            elif item_text.startswith("Image AI") or item_text.startswith("OCR Search"):
+                print(f"Opening Image AI or OCR Search for item: {item_text}")
+                iv = map_image_ai_keys(parsed_dict)
+                iv["item_id"] = item_id  # pass the stable Treeview IID
+                open_image_ai_window(
+                    self.master.master,
+                    self.master.master.add_event_to_treeview,
+                    initial_values=iv
+                )
             elif item_text.startswith("If"):
                 open_if_window(self.master, lambda *args, **kwargs: None, variables={}, initial_values=parsed_dict)
             elif item_text.startswith("Checkpoint"):
@@ -128,7 +138,6 @@ class DraggableTreeview(ttk.Treeview):
         if item in current_selection:
             self.drag_data["selection_locked"] = True
             self.drag_data["items"] = list(current_selection)
-            print(f"Selected items: {[self.item(i, 'text') for i in current_selection]}")
             return "break"
 
         self.drag_data["selection_locked"] = False
