@@ -99,7 +99,13 @@ class DraggableTreeview(ttk.Treeview):
                 }
 
             if item_text.startswith("Search Pattern"):
-                open_pattern_window(self.master.master, lambda *args, **kwargs: None, initial_values=map_pattern_keys(parsed_dict))
+                iv = map_pattern_keys(parsed_dict)
+                iv["item_id"] = item_id  # ensure we pass the stable Treeview IID
+                open_pattern_window(
+                    self.master.master,
+                    self.master.master.add_event_to_treeview,  # real updater
+                    initial_values=iv
+            )
             elif item_text.startswith("OCR Search"):
                 open_ocr_window(self.master, lambda *args, **kwargs: None, variables={}, edit_mode=True, initial_values=map_ocr_keys(parsed_dict))
             elif item_text.startswith("If"):
