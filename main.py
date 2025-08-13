@@ -130,7 +130,7 @@ class MainApplication(tk.Tk):
                 self.settings[key] = entry.get().strip()
             with open(os.path.join("storage", "settings.json"), "w") as f:
                 json.dump(self.settings, f, indent=4)
-            print("🔧 Settings saved.")
+            print("Settings saved.")
             dialog.destroy()
 
         tk.Button(dialog, text="Save", command=save_and_close).grid(row=row, column=0, columnspan=2, pady=15)

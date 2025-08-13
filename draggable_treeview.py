@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
+import re
+from search_pattern_window import open_pattern_window
 
 class DraggableTreeview(ttk.Treeview):
     def __init__(self, master, accepted_sources=None, allow_drop=True, allow_self_drag=True, **kwargs):
@@ -7,10 +9,15 @@ class DraggableTreeview(ttk.Treeview):
         self.accepted_sources = accepted_sources if accepted_sources is not None else []  # List of accepted drag sources
         self.allow_drop = allow_drop  # Allow dropping items into this treeview
         self.allow_self_drag = allow_self_drag  # Allow dragging within this treeview
+        self.clipboard_items = []
         self.bind("<Button-1>", self.on_click)
         self.bind("<B1-Motion>", self.start_drag)
         self.bind("<ButtonRelease-1>", self.drop)
+        self.bind("<Double-1>", self.open_edit_dialog)   
         self.bind("<Delete>", self.delete_selected)  # Bind Delete key to remove selected items
+        self.bind_all("<Control-c>", self.copy_selected_items)
+        self.bind_all("<Control-x>", self.cut_selected_items)
+        self.bind_all("<Control-v>", self.paste_items)
         self.drag_data = {"items": [], "dragging": False, "selection_locked": False, "hover_item": None, "hover_treeview": None}
 
         # Configure visual styles
@@ -19,6 +26,97 @@ class DraggableTreeview(ttk.Treeview):
         self.tag_configure("target_hover", background="purple")
         self.tag_configure("active", background="green")  # Tag for active item
         self.column("#0", width=150)
+
+
+    def copy_selected_items(self, event=None):
+        selected = self.selection()
+        if selected:
+            self.clipboard_items = [self.item(i, "text") for i in selected]
+            print(f"Copied {len(self.clipboard_items)} items")
+
+    def cut_selected_items(self, event=None):
+        selected = self.selection()
+        if selected:
+            self.clipboard_items = [self.item(i, "text") for i in selected]
+            for i in selected:
+                self.delete(i)
+            print(f"Cut {len(self.clipboard_items)} items")
+
+    def paste_items(self, event=None):
+        if not self.clipboard_items:
+            print("Clipboard empty")
+            return
+
+        selected = self.selection()
+        if selected:
+            insert_index = self.index(selected[-1]) + 1
+        else:
+            insert_index = len(self.get_children())
+
+        for item_text in self.clipboard_items:
+            self.insert("", insert_index, text=item_text)
+            insert_index += 1
+
+        print(f"Pasted {len(self.clipboard_items)} items")
+
+
+    def open_edit_dialog(self, event):
+        item_id = self.identify_row(event.y)
+        item_idx = self.index(self.identify_row(event.y))
+        if item_id:
+            item_text = self.item(item_id, "text")
+            pattern = r'(\w[\w\s]+):\s*((?:\{.*?\}|\(.*?\)|[^,])+)(?:,|$)'
+            matches = re.findall(pattern, item_text)
+            parsed_list = [(key.strip(), value.strip()) for key, value in matches]
+            parsed_dict = dict(parsed_list)
+            from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
+
+            def map_pattern_keys(d):
+                # Map to the exact keys expected by open_pattern_window
+                return {
+                    "pattern_image_base64": d.get("Image"),
+                    "search_coords": d.get("Search Area"),
+                    "succeed_goto": d.get("Succeed Go To"),
+                    "fail_goto": d.get("Fail Go To"),
+                    "click": d.get("Click"),
+                    "wait_time": d.get("Wait", "5.0s").replace("s", ""),
+                    "threshold": d.get("Threshold"),
+                    "scene_change": d.get("Scene Change"),
+                    "succeed_notify_value": d.get("Succeed Notification"),
+                    "fail_notify_value": d.get("Fail Notification"),
+                    # Optionally add notification flags if present
+                    "succeed_notify": "Succeed Notification" in d and d.get("Succeed Notification") != "None",
+                    "fail_notify": "Fail Notification" in d and d.get("Fail Notification") != "None",
+                    "item_id": item_idx  # Use item_id if not present
+                }
+
+            def map_ocr_keys(d):
+                return {
+                    "coords": d.get("Area"),
+                    "wait_time": d.get("Wait", "5.0s").replace("s", ""),
+                    "variable_name": d.get("Variable"),
+                    "variable_content": d.get("Variable Content")
+                }
+
+            if item_text.startswith("Search Pattern"):
+                iv = map_pattern_keys(parsed_dict)
+                iv["item_id"] = item_id  # ensure we pass the stable Treeview IID
+                open_pattern_window(
+                    self.master.master,
+                    self.master.master.add_event_to_treeview,  # real updater
+                    initial_values=iv
+            )
+            elif item_text.startswith("OCR Search"):
+                open_ocr_window(self.master, lambda *args, **kwargs: None, variables={}, edit_mode=True, initial_values=map_ocr_keys(parsed_dict))
+            elif item_text.startswith("If"):
+                open_if_window(self.master, lambda *args, **kwargs: None, variables={}, initial_values=parsed_dict)
+            elif item_text.startswith("Checkpoint"):
+                open_checkpoint_window(self.master, lambda *args, **kwargs: None)
+            elif item_text.startswith("Wait"):
+                open_wait_window(self.master, lambda *args, **kwargs: None)
+
+
+        
 
     def on_click(self, event):
         """Handle mouse click to initiate selection or drag."""

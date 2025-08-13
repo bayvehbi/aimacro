@@ -138,46 +138,56 @@ class MacroRecorder:
 class ShortcutHandler:
     def __init__(self, page1):
         self.page1 = page1
-        self.ctrl_pressed = False
-        self.global_listener = pynput_keyboard.Listener(on_press=self.on_global_key_press, on_release=self.on_global_key_release)
+        self.pressed_keys = set()
+        self.global_listener = pynput_keyboard.Listener(
+            on_press=self.on_global_key_press,
+            on_release=self.on_global_key_release
+        )
         self.global_listener.start()
 
     def on_global_key_press(self, key):
-        """Handle global key press events with shortcut detection."""
         try:
-            key_char = getattr(key, 'char', None)
-            key_vk = getattr(key, 'vk', None)
-            key_name = str(key)
-            print(f"Pressed key: char={key_char}, vk={key_vk}, name={key_name}, ctrl_pressed={self.ctrl_pressed}")
+            if key in self.pressed_keys:
+                return  # Skip repeated holding
+            self.pressed_keys.add(key)
 
-            if key in (Key.ctrl_l, Key.ctrl_r):
-                self.ctrl_pressed = True
-                print("Ctrl pressed")
+            key_char = getattr(key, 'char', None)
+            print(f"[KEY PRESS] char={repr(key_char)}")
+
+            if not key_char:
                 return
 
-            if self.ctrl_pressed and key_vk:
-                key_str = chr(key_vk).lower()
-                if key_str == self.page1.start_recording_key and not self.page1.recording:
-                    print(f"'Ctrl + {key_str}' pressed, starting recording...")
-                    self.page1.start_recording()
-                elif key_str == self.page1.stop_recording_key and self.page1.recording:
-                    print(f"'Ctrl + {key_str}' pressed, stopping recording...")
-                    self.page1.stop_recording()
-                elif key_str == self.page1.start_macro_key and not self.page1.running:
-                    print(f"'Ctrl + {key_str}' pressed, starting macro...")
-                    self.page1.start_macro()
-                elif key_str == self.page1.stop_macro_key and self.page1.running:
-                    print(f"'Ctrl + {key_str}' pressed, stopping macro...")
-                    self.page1.stop_macro()
+            # Normalize input key
+            pressed = key_char.lower().strip()
+
+            # Fetch normalized shortcut keys from page1
+            shortcuts = {
+                self.page1.start_recording_key.lower().strip(): self.page1.start_recording,
+                self.page1.stop_recording_key.lower().strip(): self.page1.stop_recording,
+                self.page1.start_macro_key.lower().strip(): self.page1.start_macro,
+                self.page1.stop_macro_key.lower().strip(): self.page1.stop_macro,
+            }
+
+            # Check and trigger action
+            if pressed in shortcuts:
+                action = shortcuts[pressed]
+                if callable(action):
+                    print(f"[SHORTCUT TRIGGERED] '{pressed}' → {action.__name__}")
+                    # Check state guards
+                    if action == self.page1.start_recording and not self.page1.recording:
+                        action()
+                    elif action == self.page1.stop_recording and self.page1.recording:
+                        action()
+                    elif action == self.page1.start_macro and not self.page1.running:
+                        action()
+                    elif action == self.page1.stop_macro and self.page1.running:
+                        action()
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"[ERROR in on_global_key_press]: {e}")
 
     def on_global_key_release(self, key):
-        """Handle global key release events."""
-        if key in (Key.ctrl_l, Key.ctrl_r):
-            self.ctrl_pressed = False
-            print("Ctrl released")
+        self.pressed_keys.discard(key)
 
 # Aşağıdaki fonksiyonlar Windows’a özel, bu nedenle yorum satırı olarak bırakıldı
 """

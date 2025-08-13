@@ -5,7 +5,13 @@ from monitor_utils import MacroRecorder, ShortcutHandler
 import time
 from PIL import Image, ImageTk
 from draggable_treeview import DraggableTreeview
-from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_pattern_window, open_wait_window
+from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
+from search_pattern_window import open_pattern_window
+import base64
+import io
+from PIL import Image, ImageTk
+from images_base64_output import images_base64
+import re
 
 class Page1(tk.Frame):
     def __init__(self, master):
@@ -26,6 +32,13 @@ class Page1(tk.Frame):
         self.setup_ui()
 
     def setup_ui(self):
+        def resize_icon_from_base64(b64_string):
+            """Base64 string’ten 12x12 ikon oluşturur."""
+            image_data = base64.b64decode(b64_string)
+            image = Image.open(io.BytesIO(image_data))
+            image = image.resize((12, 12), Image.LANCZOS)
+            return ImageTk.PhotoImage(image)
+        
         """Set up the UI elements for Page1."""
         button_frame = tk.Frame(self, bg="#f0f0f0")
         button_frame.pack(side=tk.TOP, padx=10, pady=5, fill=tk.X)
@@ -47,15 +60,16 @@ class Page1(tk.Frame):
             img = img.resize((12, 12), Image.LANCZOS)
             return ImageTk.PhotoImage(img)
 
-        self.run_icon = resize_icon(os.path.join(icon_dir, "play.png"))
-        self.stop_icon = resize_icon(os.path.join(icon_dir, "stop.png"))
-        self.record_icon = resize_icon(os.path.join(icon_dir, "start_rcd.png"))
-        self.stop_record_icon = resize_icon(os.path.join(icon_dir, "stop_rcd.png"))
-        self.ocr_icon = resize_icon(os.path.join(icon_dir, "ocr.png"))
-        self.if_icon = resize_icon(os.path.join(icon_dir, "if.png"))
-        self.checkpoint_icon = resize_icon(os.path.join(icon_dir, "checkpoint.png"))
-        self.pattern_icon = resize_icon(os.path.join(icon_dir, "pattern.png"))
-        self.wait_icon = resize_icon(os.path.join(icon_dir, "wait.png"))
+        self.run_icon = resize_icon_from_base64(images_base64["play.png"])
+        self.stop_icon = resize_icon_from_base64(images_base64["stop.png"])
+        self.record_icon = resize_icon_from_base64(images_base64["start_rcd.png"])
+        self.stop_record_icon = resize_icon_from_base64(images_base64["stop_rcd.png"])
+        self.ocr_icon = resize_icon_from_base64(images_base64["ocr.png"])
+        self.if_icon = resize_icon_from_base64(images_base64["if.png"])
+        self.checkpoint_icon = resize_icon_from_base64(images_base64["checkpoint.png"])
+        self.pattern_icon = resize_icon_from_base64(images_base64["pattern.png"])
+        self.wait_icon = resize_icon_from_base64(images_base64["wait.png"])
+        self.flat_icon = resize_icon_from_base64(images_base64["flat.png"])
 
         self.run_button = ttk.Button(button_frame, image=self.run_icon, style="Custom.TButton", command=self.start_macro)
         self.run_button.pack(side=tk.LEFT, padx=5)
@@ -84,6 +98,9 @@ class Page1(tk.Frame):
         self.wait_button = ttk.Button(button_frame, image=self.wait_icon, style="Custom.TButton", command=self.open_wait_window_wrapper)
         self.wait_button.pack(side=tk.LEFT, padx=5)
 
+        self.flat_button = ttk.Button(button_frame, image=self.flat_icon, style="Custom.TButton", command=self.flat_window_wrapper)
+        self.flat_button.pack(side=tk.LEFT, padx=5)
+
         input_frame = ttk.Frame(button_frame)
         input_frame.pack(side=tk.LEFT, pady=10, padx=5)
 
@@ -98,8 +115,16 @@ class Page1(tk.Frame):
         self.entry.pack(side=tk.LEFT)
 
         self.dynamic_text = StringVar(value="waiting...")  
-        self.status_label = ttk.Label(input_frame, textvariable=self.dynamic_text, style="Custom.TLabel")
-        self.status_label.pack(side=tk.LEFT, padx=(6, 0)) 
+        self.status_label = ttk.Label(
+            input_frame,
+            textvariable=self.dynamic_text,
+            width=80,
+            anchor="w",
+            background="#f8f8f8",   
+            relief="solid"           
+        )
+        self.status_label.pack(side=tk.LEFT, padx=(6, 0))
+
 
         # Set up Treeview frame
         treeview_frame = tk.Frame(self)
@@ -130,6 +155,40 @@ class Page1(tk.Frame):
         """Open the wait event window."""
         open_wait_window(self, self.add_event_to_treeview)
 
+    def flat_window_wrapper(self):
+        """Prompt for increment and update timestamps in selected items."""
+        from tkinter.simpledialog import askfloat
+        import re
+
+        selected_items = self.left_treeview.selection()
+        if not selected_items:
+            print("No items selected.")
+            return
+
+        # Ask user for increment value (default = 0.5)
+        increment = askfloat("Increment", "Enter time increment (e.g., 0.5):", initialvalue=0.5, minvalue=0.001)
+        if increment is None:
+            print("Cancelled by user.")
+            return
+
+        new_time = 0.0
+        for item_id in selected_items:
+            full_text = self.left_treeview.item(item_id, "text").strip()
+
+            parts = full_text.split(" - ", 1)
+            if len(parts) != 2:
+                print(f"Invalid format, skipping: {full_text}")
+                continue
+
+            # Optional: remove time=... if you want a clean line
+            rest = re.sub(r"time=\d+(\.\d+)?", "", parts[1]).strip()
+
+            updated_text = f"{new_time:.3f} - {rest}"
+            self.left_treeview.item(item_id, text=updated_text)
+            print(f"Updated '{full_text}' -> '{updated_text}'")
+            new_time += increment
+
+
     def open_pattern_window_wrapper(self):
         """Open the pattern search window."""
         open_pattern_window(self, self.add_event_to_treeview)
@@ -147,29 +206,40 @@ class Page1(tk.Frame):
         """Stop macro execution."""
         self.macro_recorder.stop_macro()
 
-    def add_event_to_treeview(self, event):
-        """Add an event to the Treeview."""
+    def add_event_to_treeview(self, event, item_id=None, values=None):
+        """Add or update an event in the Treeview."""
         if not event or not event.strip():
             print("Empty event attempted to be added, skipping.")
             return
-        
-        # Log Treeview content and remove empty rows before adding
-        # print("Treeview content before adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
+
+        # Remove empty rows before inserting
         for item in self.left_treeview.get_children():
             if not self.left_treeview.item(item, "text").strip():
                 self.left_treeview.delete(item)
                 print("Empty row removed:", item)
-        
-        item = self.left_treeview.insert("", tk.END, text=event)
+
+        # Update existing item
+        if item_id:
+            self.left_treeview.item(item_id, text=event, values=values or [])
+            print(f"Updated Treeview item: {event}")
+            return
+
+        # Insert new item
+        item = self.left_treeview.insert("", tk.END, text=event, values=values or [])
+
+        # Handle checkpoints
         if "Checkpoint" in event:
             checkpoint_name = event.split("Checkpoint: ")[1]
             self.checkpoints[checkpoint_name] = self.left_treeview.index(item)
             print(f"Checkpoint '{checkpoint_name}' added at index {self.checkpoints[checkpoint_name]}")
+
+        # Optional: Debug Treeview content
         # print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
+
     def open_ocr_window_wrapper(self):
-        """Open the OCR event window."""
         open_ocr_window(self, self.add_event_to_treeview, self.variables)
+
 
     def open_if_window_wrapper(self):
         """Open the If condition window with updated variables."""
@@ -190,7 +260,7 @@ class Page1(tk.Frame):
     def open_wait_window_wrapper(self):
         """Open the wait event window (duplicate method, kept for compatibility)."""
         open_wait_window(self, self.add_event_to_treeview)
-
+    
     def only_digits(self, value):
         """Returns only digits."""
         return value.isdigit() or value == ""

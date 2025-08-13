@@ -11,6 +11,7 @@ import traceback
 import http.client
 import urllib.parse
 import datetime
+import os 
 
 def send_notification(notification_name, page1):
     """Send a notification via Pushover API."""
@@ -105,8 +106,9 @@ def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, cli
                 search_offset_x, search_offset_y = 0, 0
             print(f"Screen image captured, size: {screen.size}")
             print(f"Searching for pattern with confidence={threshold}, grayscale=True...")
-            screen.save("pattern_a.png")
-            pattern_img.save("patter.png")
+            os.makedirs("./logs", exist_ok=True)
+            screen.save("./logs/pattern_a.png")
+            pattern_img.save("./logs/patter.png")
             location = pyautogui.locate(pattern_img, screen, grayscale=True, confidence=threshold)
             if location:
                 print(f"Pattern found at {location}")
@@ -168,11 +170,11 @@ TIMESTAMP_PATTERN = re.compile(r"(\d+\.\d+) - (.+)")
 KEY_PRESS_PATTERN = re.compile(r"Key pressed: (.+)")
 KEY_RELEASE_PATTERN = re.compile(r"Key released: (.+)")
 MOUSE_MOVE_PATTERN = re.compile(r"Mouse moved to: \((\d+), (\d+)\)")
-MOUSE_SCROLL_PATTERN = re.compile(r"Mouse scrolled (up|down) at: \((\d+), (\d+)\)")
-MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button.left pressed at: \((\d+), (\d+)\)")
-MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button.left released at: \((\d+), (\d+)\)")
-MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button.right pressed at: \((\d+), (\d+)\)")
-MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button.right released at: \((\d+), (\d+)\)")
+MOUSE_SCROLL_PATTERN = re.compile(r"Mouse scrolled (up|down)(?: at: \((\d+), (\d+)\))?")
+MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button\.left pressed(?: at: \((\d+), (\d+)\))?")
+MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button\.left released(?: at: \((\d+), (\d+)\))?")
+MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button\.right pressed(?: at: \((\d+), (\d+)\))?")
+MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button\.right released(?: at: \((\d+), (\d+)\))?")
 OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If (\w+) ([><=!%]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
@@ -257,46 +259,69 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     if mouse_scroll_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_scroll_match.string)
         direction, x, y = mouse_scroll_match.groups()
-        mouse_controller.position = (int(x), int(y))
+        if x and y:
+            mouse_controller.position = (int(x), int(y))
+        else:
+            x, y = mouse_controller.position
         scroll_amount = 1 if direction == "up" else -1
         mouse_controller.scroll(0, scroll_amount)
         print(f"Scrolled {direction} at: ({x}, {y})")
         return current_index + 1, current_timestamp
 
+
     mouse_left_press_match = MOUSE_LEFT_PRESS_PATTERN.match(action)
     if mouse_left_press_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_left_press_match.string)
-        x, y = map(int, mouse_left_press_match.groups())
-        mouse_controller.position = (x, y)
+        x, y = mouse_left_press_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.press(pynput_mouse.Button.left)
-        print(f"Left click pressed at: ({x}, {y})")
+        print(f"Left click pressed at: {pos}")
         return current_index + 1, current_timestamp
+
 
     mouse_left_release_match = MOUSE_LEFT_RELEASE_PATTERN.match(action)
     if mouse_left_release_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_left_release_match.string)
-        x, y = map(int, mouse_left_release_match.groups())
-        mouse_controller.position = (x, y)
+        x, y = mouse_left_release_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.release(pynput_mouse.Button.left)
-        print(f"Left click released at: ({x}, {y})")
+        print(f"Left click released at: {pos}")
         return current_index + 1, current_timestamp
+
 
     mouse_right_press_match = MOUSE_RIGHT_PRESS_PATTERN.match(action)
     if mouse_right_press_match:
-        page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_press_match)
-        x, y = map(int, mouse_right_press_match.groups())
-        mouse_controller.position = (x, y)
+        page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_press_match.string)
+        x, y = mouse_right_press_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.press(pynput_mouse.Button.right)
-        print(f"Right click pressed at: ({x}, {y})")
+        print(f"Right click pressed at: {pos}")
         return current_index + 1, current_timestamp
+
 
     mouse_right_release_match = MOUSE_RIGHT_RELEASE_PATTERN.match(action)
     if mouse_right_release_match:
         page1.dynamic_text.set(f"line: {current_index} - " + mouse_right_release_match.string)
-        x, y = map(int, mouse_right_release_match.groups())
-        mouse_controller.position = (x, y)
+        x, y = mouse_right_release_match.groups()
+        if x and y:
+            pos = (int(x), int(y))
+            mouse_controller.position = pos
+        else:
+            pos = mouse_controller.position
         mouse_controller.release(pynput_mouse.Button.right)
-        print(f"Right click released at: ({x}, {y})")
+        print(f"Right click released at: {pos}")
         return current_index + 1, current_timestamp
 
     ocr_match = OCR_PATTERN.match(action)
@@ -310,7 +335,9 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
 
         screenshot = pyautogui.screenshot(region=(x1, y1, x2-x1, y2-y1))
         buffered = BytesIO()
+        os.makedirs("./logs", exist_ok=True)
         screenshot.save(buffered, format="PNG")
+        screenshot.save("./logs/ocr.png")
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
         text = send_to_grok_ocr(img_str, page1.master.master.settings, variable_content)
@@ -359,7 +386,8 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
                 x1, y1, x2, y2, width, height = unpack_coords(search_coords).values()
                 screen = pyautogui.screenshot(region=(x1, y1, width, height))
                 screen_str = image_to_base64(screen)
-                load_image(screen_str).save("newone.png")
+                os.makedirs("./logs", exist_ok=True)
+                load_image(screen_str).save("./logs/newone.png")
                 new_text = re.sub(r'Image: [^\s,]+', 'Image: ' + str(screen_str), page1.left_treeview.item(page1.left_treeview.get_children()[current_index])["text"])                # Update the event in self.events and treeview text
                 page1.left_treeview.item(page1.left_treeview.get_children()[current_index], text=new_text)
                 
