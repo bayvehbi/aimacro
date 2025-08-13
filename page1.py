@@ -5,8 +5,10 @@ from monitor_utils import MacroRecorder, ShortcutHandler
 import time
 from PIL import Image, ImageTk
 from draggable_treeview import DraggableTreeview
-from ai_stuff import open_ocr_window, open_if_window, open_checkpoint_window, open_wait_window
+from ai_stuff import open_checkpoint_window, open_wait_window
 from search_pattern_window import open_pattern_window
+from image_ai_window import open_image_ai_window
+from if_window import open_if_window
 import base64
 import io
 from PIL import Image, ImageTk
@@ -83,7 +85,7 @@ class Page1(tk.Frame):
         self.stop_button = ttk.Button(button_frame, image=self.stop_record_icon, style="Custom.TButton", command=self.stop_recording, state="disabled")
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
-        self.ocr_button = ttk.Button(button_frame, image=self.ocr_icon, style="Custom.TButton", command=self.open_ocr_window_wrapper)
+        self.ocr_button = ttk.Button(button_frame, image=self.ocr_icon, style="Custom.TButton", command=self.open_image_ai_window_wrapper)
         self.ocr_button.pack(side=tk.LEFT, padx=5)
 
         self.if_button = ttk.Button(button_frame, image=self.if_icon, style="Custom.TButton", command=self.open_if_window_wrapper)
@@ -237,9 +239,8 @@ class Page1(tk.Frame):
         # print("Treeview content after adding:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
 
-    def open_ocr_window_wrapper(self):
-        open_ocr_window(self, self.add_event_to_treeview, self.variables)
-
+    def open_image_ai_window_wrapper(self):
+        open_image_ai_window(self, self.add_event_to_treeview)
 
     def open_if_window_wrapper(self):
         """Open the If condition window with updated variables."""
