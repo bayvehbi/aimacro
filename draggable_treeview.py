@@ -102,6 +102,21 @@ class DraggableTreeview(ttk.Treeview):
 
                 }
 
+            def map_if_keys(d):
+                return {
+                    "variable": d.get("Variable"),
+                    "condition": d.get("Condition"),
+                    "value": d.get("Value"),
+                    "succeed_checkpoint": d.get("Succeed Go To"),
+                    "fail_checkpoint": d.get("Fail Go To"),
+                    "succeed_send": d.get("Succeed Notification") not in (None, "", "None"),
+                    "fail_send": d.get("Fail Notification") not in (None, "", "None"),
+                    "succeed_notification": d.get("Succeed Notification"),
+                    "fail_notification": d.get("Fail Notification"),
+                    "wait_time": d.get("Wait", "5.0s").replace("s", ""),
+                    "item_id": item_idx  # Use item_id if not present
+                }
+
             if item_text.startswith("Search Pattern"):
                 iv = map_pattern_keys(parsed_dict)
                 iv["item_id"] = item_id  # ensure we pass the stable Treeview IID
@@ -120,7 +135,15 @@ class DraggableTreeview(ttk.Treeview):
                     initial_values=iv
                 )
             elif item_text.startswith("If"):
-                open_if_window(self.master, lambda *args, **kwargs: None, variables={}, initial_values=parsed_dict)
+                print(f"Opening If window for item: {item_text}")
+                iv = map_if_keys(parsed_dict)
+                iv["item_id"] = item_id  # pass the stable Treeview IID
+                open_if_window(
+                    self.master.master,
+                    self.master.master.add_event_to_treeview,
+                    variables={},
+                    initial_values=iv
+                )
             elif item_text.startswith("Checkpoint"):
                 open_checkpoint_window(self.master, lambda *args, **kwargs: None)
             elif item_text.startswith("Wait"):

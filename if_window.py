@@ -7,7 +7,7 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
     """Open the If condition window. Edit mode auto-detected from initial_values['item_id'/'item_number']."""
     iv = initial_values or {}
     item_id = iv.get("item_id") or iv.get("item_number")
-
+    print(f"Opening If window with item_id: {item_id}, initial_values: {iv}")
     win = tk.Toplevel(parent)
     win.title("If Condition")
     sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
@@ -89,6 +89,7 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
 
     # ---- Populate from initial_values (if editing) ----
     if iv:
+        print(f"Editing If event with initial values: {iv}")
         # variable / condition / value (support multiple key casings)
         vname = iv.get("variable") or iv.get("Variable")
         cond  = iv.get("condition") or iv.get("Condition")
