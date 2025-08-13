@@ -11,7 +11,7 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
     win = tk.Toplevel(parent)
     win.title("If Condition")
     sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
-    win.geometry(f"{int(sw*0.4)}x{int(sh*0.5)}")
+    win.geometry(f"{int(sw*0.4)}x{int(sh*0.55)}")
     win.attributes("-topmost", True)
 
     # ---- UI ----
@@ -77,8 +77,8 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
     fail_notification_dropdown.set("None")
     fail_notification_dropdown.grid(row=0, column=2, padx=5)
 
-    # Wait time
-    tk.Label(win, text="Wait Time if Failed (seconds):").pack(pady=5)
+    # Single wait time for both outcomes
+    tk.Label(win, text="Wait Time (seconds):").pack(pady=5)
     wait_time_entry = tk.Entry(win); wait_time_entry.insert(0, "5"); wait_time_entry.pack(pady=5)
 
     def toggle_notification(mode):
@@ -120,11 +120,10 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
         if fn: fail_notification_dropdown.set(fn)
         toggle_notification('succeed'); toggle_notification('fail')
 
-        # wait time
+        # single wait time (support both 'Wait' and 'wait_time', strip trailing 's')
         wt = iv.get("wait_time") or iv.get("Wait")
-        if wt:
-            wt_str = str(wt).rstrip("s")
-            wait_time_entry.delete(0, tk.END); wait_time_entry.insert(0, wt_str)
+        if wt is not None:
+            wait_time_entry.delete(0, tk.END); wait_time_entry.insert(0, str(wt).rstrip("s"))
 
     # ---- Save ----
     def save_if_event():
@@ -144,15 +143,21 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
             fail_notification = fail_notification_dropdown.get() or "None"
             wait_time = float(wait_time_entry.get())
 
-            event = (f"If {variable_name} {condition} {value}, "
-                     f"Succeed Go To: {succeed_checkpoint}, "
-                     f"Fail Go To: {fail_checkpoint}, "
-                     f"Wait: {wait_time}s")
+            # Use only key:value pairs so your regex parser picks them up
+            event = (
+                f"If - Variable: {variable_name}, "
+                f"Condition: {condition}, "
+                f"Value: {value}, "
+                f"Succeed Go To: {succeed_checkpoint}, "
+                f"Fail Go To: {fail_checkpoint}, "
+                f"Wait: {wait_time}s"
+            )
             if succeed_send and succeed_notification != "None":
                 event += f", Succeed Notification: {succeed_notification}"
             if fail_send and fail_notification != "None":
                 event += f", Fail Notification: {fail_notification}"
 
+            # Pack everything in values (order is up to you)
             values = (
                 variable_name, condition, value,
                 succeed_checkpoint, fail_checkpoint,
