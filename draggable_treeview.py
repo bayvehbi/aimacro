@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import re
 from search_pattern_window import open_pattern_window
-from image_ai import open_image_ai_window
+from image_ai_window import open_image_ai_window
 
 class DraggableTreeview(ttk.Treeview):
     def __init__(self, master, accepted_sources=None, allow_drop=True, allow_self_drag=True, **kwargs):
