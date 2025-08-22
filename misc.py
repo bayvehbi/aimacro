@@ -175,7 +175,7 @@ MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button\.left pressed(?: at: \((\d+
 MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button\.left released(?: at: \((\d+), (\d+)\))?")
 MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button\.right pressed(?: at: \((\d+), (\d+)\))?")
 MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button\.right released(?: at: \((\d+), (\d+)\))?")
-OCR_PATTERN = re.compile(r"OCR Search - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
+OCR_PATTERN = re.compile(r"Image AI - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If (\w+) ([><=!%]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 WAIT_PATTERN = re.compile(r"Wait: (\d+\.\d+)s")

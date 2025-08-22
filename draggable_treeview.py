@@ -125,8 +125,8 @@ class DraggableTreeview(ttk.Treeview):
                     self.master.master.add_event_to_treeview,  # real updater
                     initial_values=iv
             )
-            elif item_text.startswith("Image AI") or item_text.startswith("OCR Search"):
-                print(f"Opening Image AI or OCR Search for item: {item_text}")
+            elif item_text.startswith("Image AI") or item_text.startswith("Image AI"):
+                print(f"Opening Image AI or Image AI for item: {item_text}")
                 iv = map_image_ai_keys(parsed_dict)
                 iv["item_id"] = item_id  # pass the stable Treeview IID
                 open_image_ai_window(
