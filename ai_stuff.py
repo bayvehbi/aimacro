@@ -4,7 +4,6 @@ import pyautogui
 import base64
 from io import BytesIO
 from PIL import Image, ImageTk
-from misc import send_to_grok_ocr
 import traceback
 from pynput import keyboard, mouse
 

@@ -14,7 +14,10 @@ def load_api_settings():
         "start_macro_run_shortcut": "p",
         "stop_macro_run_shortcut": "q",
         "chatgpt_api_key": "",
-        "grok_api_key": ""
+        "grok_api_key": "",
+        "azure_api_key": "",  # Default Azure API key
+        "azure_endpoint": "",  # Default Azure endpoint
+        "azure_subscription_key": "",  # Default Azure subscription key
     }
 
     os.makedirs("storage", exist_ok=True)
@@ -114,6 +117,9 @@ class MainApplication(tk.Tk):
             ("stop_macro_run_shortcut", "Stop Macro Run Shortcut"),
             ("chatgpt_api_key", "OpenAI API Key"),
             ("grok_api_key", "Grok API Key"),
+            ("azure_api_key", "Azure API Key"),  # Added Azure API Key setting
+            ("azure_endpoint", "Azure Endpoint"),  # Added Azure Endpoint setting
+            ("azure_subscription_key", "Azure Subscription Key"),  # Added Azure Subscription Key setting
         ]
 
         for key, label in settings_keys:

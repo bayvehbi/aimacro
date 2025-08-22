@@ -54,6 +54,18 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
     ).pack(pady=5)
     preview_label.pack(pady=5)
 
+    # Dropdown for selecting AI provider
+    tk.Label(scrollable, text="Select AI Provider:").pack(pady=5)
+    ai_provider_var = tk.StringVar(value="Azure")  # Default to Azure
+    ai_provider_dropdown = tk.OptionMenu(scrollable, ai_provider_var, "Azure")
+    ai_provider_dropdown.pack(pady=5)
+
+    # Dropdown for selecting feature
+    tk.Label(scrollable, text="Select Feature:").pack(pady=5)
+    feature_var = tk.StringVar(value="ocr")  # Default to OCR
+    feature_dropdown = tk.OptionMenu(scrollable, feature_var, "ocr", "describe", "analyze", "detect_faces", "object_detection", "landmark_recognition", "content_moderation", "read", "generate_thumbnail")
+    feature_dropdown.pack(pady=5)
+
     tk.Label(scrollable, text="Image AI content (prompt / expected text)").pack(pady=5)
     variable_message = tk.Entry(scrollable)
     variable_message.pack(pady=5)
@@ -86,6 +98,8 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
 
         variable_name = variable_entry.get().strip()
         variable_content = variable_message.get()
+        ai_provider = ai_provider_var.get()
+        feature = feature_var.get()
 
         if not variable_name:
             messagebox.showerror("Missing Variable Name", "Please provide a variable name before saving.")
@@ -95,11 +109,11 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
             return
 
         coords = win.image_ai_coords
-        event = (f"Image AI - Area: {coords}, "
+        event = (f"Image AI - Provider: {ai_provider}, Feature: {feature}, Area: {coords}, "
                  f"Wait: {wait_time}s, "
                  f"Variable: {variable_name}, "
                  f"Variable Content: {variable_content}")
-        values = (coords, wait_time, variable_name, variable_content)
+        values = (coords, wait_time, variable_name, variable_content, ai_provider, feature)
 
         if item_id is not None:
             coords_callback(event, item_id=item_id, values=values)

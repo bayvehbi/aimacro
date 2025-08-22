@@ -12,6 +12,10 @@ import http.client
 import urllib.parse
 import datetime
 import os 
+import ast
+import json
+
+from image_utils import upscale_min_size, encode_image_to_base64
 
 def send_notification(notification_name, page1):
     """Send a notification via Pushover API."""
@@ -41,52 +45,151 @@ def send_notification(notification_name, page1):
     else:
         print(f"Notification '{notification_name}' not found in notifications: {page1.master.master.page2.notifications}")
 
-def send_to_grok_ocr(image_base64, settings, variable_content):
-    """Extract text from an image using Grok OCR API."""
-    api_key = settings.get("grok_api_key")
-    if not api_key:
-        raise ValueError("Please enter a valid xAI API key. You can obtain one from https://console.x.ai.")
 
-    url = "https://api.x.ai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {
-        "model": "grok-2-vision-1212",
-        "messages": [
-            {"role": "system", "content": ""  + variable_content},
-            {"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
-                {"type": "text", "text": "" + variable_content}
-            ]}
-        ],
-        "max_tokens": 500
-    }
+def send_to_azure(image_base64, settings, feature="ocr", *, timeout=30, read_poll_timeout=20, read_poll_interval=1.5):
+    """
+    Perform analysis on an image using Azure Computer Vision (direct endpoint).
 
-    # url = "https://api.x.ai/v1/chat/completions"
-    # headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    # payload = {
-    #     "model": "grok-2-vision-1212",
-    #     "messages": [
-    #         {"role": "system", "content": "Analyze this image and extract the text. Return only the text, no additional response."  + variable_content},
-    #         {"role": "user", "content": [
-    #             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
-    #             {"type": "text", "text": "Extract the text. Do not respond with anything else. "}
-    #         ]}
-    #     ],
-    #     "max_tokens": 500
-    # }
+    Required `settings` keys:
+      - azure_endpoint: e.g. "https://vehbi-ocr.cognitiveservices.azure.com/"
+      - azure_api_key:  Key1 or Key2 from the SAME resource (vehbi-ocr)
 
-    print("this is payload" + str(payload))
-    
+    Supported features:
+      - "ocr"   : Legacy OCR (one call). Deprecated by Microsoft but kept for compatibility.
+      - "read"  : Read 3.2 (two-step with polling). Recommended for OCR.
+      - "describe": Returns a single caption string (if available).
+      - "analyze" : Returns tags & categories (basic extraction demo).
+
+    Returns:
+      - On success: feature-specific value (see below)
+      - On HTTP error: "API request failed: <...>"
+      - On parse error: "JSON parsing error: <...>"
+    """
+
+    endpoint = (settings.get("azure_endpoint") or "").strip()
+    key = settings.get("azure_api_key") or settings.get("azure_subscription_key")
+
+    if not key:
+        raise ValueError("Azure API key is missing in settings (use Key1/Key2 from your CV resource).")
+    if not endpoint:
+        raise ValueError("Azure endpoint is missing in settings.")
+    # Normalize endpoint (no trailing slash to avoid //)
+    if endpoint.endswith("/"):
+        endpoint = endpoint[:-1]
+
+    # Build base URLs safely
+    def u(path):
+        # path should NOT start with slash to avoid urljoin quirks across domains
+        return f"{endpoint}/{path}"
+
+    # Decode base64 image once
     try:
-        response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        text = result.get("choices", [{}])[0].get("message", {}).get("content", "Text not found")
-        return text
+        image_bytes = base64.b64decode(image_base64)
+    except Exception as e:
+        return f"Image decode error: {e}"
+
+    # Common headers for key auth
+    bin_headers = {"Ocp-Apim-Subscription-Key": key, "Content-Type": "application/octet-stream"}
+    json_headers = {"Ocp-Apim-Subscription-Key": key, "Content-Type": "application/json"}
+
+    try:
+        if feature == "read":
+            # --- Read 3.2 (recommended) ---
+            submit_url = u("vision/v3.2/read/analyze")
+            # You can send bytes (octet-stream) or a JSON URL payload. We'll send bytes:
+            resp = requests.post(submit_url, headers=bin_headers, data=image_bytes, timeout=timeout)
+            resp.raise_for_status()
+
+            # Poll the Operation-Location
+            op_loc = resp.headers.get("Operation-Location")
+            if not op_loc:
+                # Some proxies strip headers; fallback to body (rare)
+                try:
+                    j = resp.json()
+                except Exception:
+                    j = {}
+                # Return what we have to help debug
+                return {"warning": "Operation-Location header missing", "submit_response": j}
+
+            # Poll until succeeded/failed or timeout
+            deadline = time.time() + read_poll_timeout
+            while True:
+                poll = requests.get(op_loc, headers={"Ocp-Apim-Subscription-Key": key}, timeout=timeout)
+                poll.raise_for_status()
+                j = poll.json()
+                status = j.get("status")
+                if status in ("succeeded", "failed"):
+                    if status == "succeeded":
+                        # Return lines joined for convenience; also return raw if you want it
+                        lines = []
+                        try:
+                            for page in j["analyzeResult"]["readResults"]:
+                                for line in page.get("lines", []):
+                                    txt = line.get("text", "")
+                                    if txt:
+                                        lines.append(txt)
+                        except Exception:
+                            pass
+                        return "\n".join(lines) if lines else j  # fall back to raw if nothing parsed
+                    else:
+                        return j  # failed with details
+                if time.time() > deadline:
+                    return {"error": "READ polling timed out", "last_response": j}
+                time.sleep(read_poll_interval)
+
+        elif feature == "ocr":
+            # --- Legacy OCR endpoint (kept for compatibility) ---
+            url = u("vision/v3.2/ocr")
+            resp = requests.post(url, headers=bin_headers, data=image_bytes, timeout=timeout)
+            resp.raise_for_status()
+            j = resp.json()
+
+            # Extract text lines similar to your original code
+            lines = []
+            for region in j.get("regions", []):
+                for line in region.get("lines", []):
+                    words = [w.get("text", "") for w in line.get("words", [])]
+                    if any(words):
+                        lines.append(" ".join(words))
+            return "\n".join(lines) if lines else "Text not found"
+
+        elif feature == "describe":
+            # Simple caption using Describe
+            url = u("vision/v3.2/describe")
+            resp = requests.post(url, headers=bin_headers, data=image_bytes, timeout=timeout)
+            resp.raise_for_status()
+            j = resp.json()
+            return j.get("description", {}).get("captions", [{}])[0].get("text", "Description not found")
+
+        elif feature == "analyze":
+            # Minimal example: call analyze and return tags/categories if present.
+            # NOTE: Visual features are usually provided via query params; here we let service infer.
+            url = u("vision/v3.2/analyze")
+            # Without visualFeatures param, the service may return limited info; adapt as needed:
+            resp = requests.post(url, headers=bin_headers, data=image_bytes, timeout=timeout)
+            resp.raise_for_status()
+            j = resp.json()
+            tags = [t.get("name", "") for t in j.get("tags", [])]
+            categories = [c.get("name", "") for c in j.get("categories", [])]
+            return {"tags": tags, "categories": categories, "raw": j}
+
+        else:
+            return f"Unsupported feature: {feature}. Try one of: 'read', 'ocr', 'describe', 'analyze'."
+
+    except requests.exceptions.HTTPError as e:
+        # Show server message if available
+        try:
+            err_json = e.response.json()
+        except Exception:
+            err_json = None
+        if err_json:
+            return f"API request failed: {e} | details: {json.dumps(err_json)}"
+        return f"API request failed: {e}"
     except requests.exceptions.RequestException as e:
-        return f"API request failed: {str(e)}"
+        return f"API request failed: {e}"
     except ValueError as e:
-        return f"JSON parsing error: {str(e)}"
+        return f"JSON parsing error: {e}"
+
 
 def search_for_pattern(pattern_img_str, search_coords, settings, page1=None, click_if_found=False, wait_time=0, threshold=0.7):
     """Search for a pattern in the specified screen area."""
@@ -175,7 +278,15 @@ MOUSE_LEFT_PRESS_PATTERN = re.compile(r"Mouse Button\.left pressed(?: at: \((\d+
 MOUSE_LEFT_RELEASE_PATTERN = re.compile(r"Mouse Button\.left released(?: at: \((\d+), (\d+)\))?")
 MOUSE_RIGHT_PRESS_PATTERN = re.compile(r"Mouse Button\.right pressed(?: at: \((\d+), (\d+)\))?")
 MOUSE_RIGHT_RELEASE_PATTERN = re.compile(r"Mouse Button\.right released(?: at: \((\d+), (\d+)\))?")
-OCR_PATTERN = re.compile(r"Image AI - Area: ({.+?}), Wait: (\d+\.\d+)s, Variable: (\w+), Variable Content: (.+)")
+OCR_PATTERN = re.compile(
+    r"Image AI - Provider:\s*(.+?),\s*"
+    r"Feature:\s*(.+?),\s*"
+    r"Area:\s*(\{.*?\}),\s*"
+    r"Wait:\s*(\d+(?:\.\d+)?)s,\s*"
+    r"Variable:\s*(\w+),\s*"
+    r"Variable Content:\s*(.*)",
+    re.DOTALL
+)
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If (\w+) ([><=!%]+|Contains) (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Wait: (\d+\.\d+)s(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 WAIT_PATTERN = re.compile(r"Wait: (\d+\.\d+)s")
@@ -324,37 +435,56 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         print(f"Right click released at: {pos}")
         return current_index + 1, current_timestamp
 
-    ocr_match = OCR_PATTERN.match(action)
+
+    print(f"Action after timestamp parsing: {action}")
+    action = action.strip()  # baş/son boşlukları temizle
+
+    # .match yerine .search kullanmak daha toleranslıdır
+    ocr_match = OCR_PATTERN.search(action)
     if ocr_match:
         page1.dynamic_text.set(f"line: {current_index} - " + ocr_match.string)
-        coords_str, wait_time, variable_name, variable_content = ocr_match.groups()
-        coords = eval(coords_str)
-        wait_time = float(wait_time)
+        provider, feature, coords_str, wait_time_str, variable_name, variable_content = ocr_match.groups()
+
+        # Güvenli parse
+        try:
+            coords = ast.literal_eval(coords_str)
+        except Exception as e:
+            print(f"Area parse error: {e} -> coords_str={coords_str!r}")
+            return current_index + 1, previous_timestamp
+
+        wait_time = float(wait_time_str)
+        variable_content = (variable_content or "").strip()
+
         x1, y1 = coords['start']
         x2, y2 = coords['end']
 
-        screenshot = pyautogui.screenshot(region=(x1, y1, x2-x1, y2-y1))
+        screenshot = pyautogui.screenshot(region=(x1, y1, x2 - x1, y2 - y1))
         buffered = BytesIO()
         os.makedirs("./logs", exist_ok=True)
         screenshot.save(buffered, format="PNG")
         screenshot.save("./logs/ocr.png")
         img_str = base64.b64encode(buffered.getvalue()).decode()
+        img_str = upscale_min_size(img_str, min_size=(50, 50))
 
-        text = send_to_grok_ocr(img_str, page1.master.master.settings, variable_content)
+        text = send_to_azure(img_str, page1.master.master.settings, feature=feature)
         print(f"OCR Result: {text}")
 
         if variable_name:
+            # Eğer Variable Content alanını doğrudan kullanmak istiyorsan:
+            # page1.variables[variable_name] = variable_content or text
+            # değilse OCR sonucunu yaz:
             page1.variables[variable_name] = text
             print(f"OCR result '{text}' saved to variable '{variable_name}'")
             print(f"Current variables: {page1.variables}")
             page1.page2.update_variables_list()
 
-        if "Text not found" in text or "API request failed" in text or "JSON parsing error" in text:
+        if any(bad in str(text) for bad in ("Text not found", "API request failed", "JSON parsing error")):
             print(f"OCR failed, waiting {wait_time} seconds before stopping...")
             time.sleep(wait_time)
             page1.running = False
         else:
             print("OCR found text, continuing macro...")
+
         return current_index + 1, previous_timestamp
 
     search_match = SEARCH_PATTERN.match(action)

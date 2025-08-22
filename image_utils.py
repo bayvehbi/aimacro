@@ -47,6 +47,26 @@ class RegionCapture:
         return img, {"start": (x1, y1), "end": (x2, y2)}
 
 
+def upscale_min_size(image_base64: str, min_size=(50, 50)) -> str:
+    """
+    Take a base64 PNG/JPG string, ensure it's at least min_size (w,h),
+    upscale while keeping aspect ratio, and return a new base64 PNG string.
+    """
+    raw = base64.b64decode(image_base64)
+    img = Image.open(BytesIO(raw))
+
+    w, h = img.size
+    min_w, min_h = min_size
+    if w < min_w or h < min_h:
+        scale = max(min_w / w, min_h / h)
+        new_w = int(round(w * scale))
+        new_h = int(round(h * scale))
+        img = img.resize((new_w, new_h), Image.BICUBIC)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
 
 def parse_coords(c):
     if not c:
