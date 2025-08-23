@@ -46,6 +46,90 @@ def send_notification(notification_name, page1):
         print(f"Notification '{notification_name}' not found in notifications: {page1.master.master.page2.notifications}")
 
 
+def send_to_chatgpt(image_base64, settings, prompt="What's in this image?", model="gpt-4o", max_tokens=300, timeout=30):
+    """
+    Sends an image and a prompt to OpenAI's ChatGPT with Vision API.
+
+    Required `settings` keys:
+      - chatgpt_api_key: Your OpenAI API key.
+
+    Args:
+      - image_base64: The base64-encoded string of the image.
+      - settings: The application settings dictionary.
+      - prompt: The text prompt to send along with the image.
+      - model: The model to use (e.g., "gpt-4o", "gpt-4-vision-preview").
+      - max_tokens: The maximum number of tokens to generate in the response.
+      - timeout: The request timeout in seconds.
+
+    Returns:
+      - On success: The text content from the model's response.
+      - On error: An error message string.
+    """
+    api_key = settings.get("chatgpt_api_key")
+    if not api_key or api_key == "-":
+        return "ChatGPT API key is missing or not set in settings."
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    # OpenAI expects the image in a specific URL format, even for base64
+    base64_image_url = f"data:image/png;base64,{image_base64}"
+
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": base64_image_url
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": max_tokens
+    }
+
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=timeout
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        # Extract the content from the first choice
+        if result.get("choices"):
+            content = result["choices"][0].get("message", {}).get("content", "")
+            return content.strip() if content else "Empty response from ChatGPT."
+        else:
+            return f"Unexpected response format from ChatGPT: {result}"
+
+    except requests.exceptions.HTTPError as e:
+        try:
+            err_json = e.response.json()
+        except Exception:
+            err_json = None
+        if err_json:
+            return f"API request failed: {e} | details: {json.dumps(err_json)}"
+        return f"API request failed: {e}"
+    except requests.exceptions.RequestException as e:
+        return f"API request failed: {e}"
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
+
+        
 def send_to_azure(image_base64, settings, feature="ocr", *, timeout=30, read_poll_timeout=20, read_poll_interval=1.5):
     """
     Perform analysis on an image using Azure Computer Vision (direct endpoint).
@@ -466,8 +550,17 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         img_str = base64.b64encode(buffered.getvalue()).decode()
         img_str = upscale_min_size(img_str, min_size=(50, 50))
 
-        text = send_to_azure(img_str, page1.master.master.settings, feature=feature)
-        print(f"OCR Result: {text}")
+        # Route to appropriate provider based on selection
+        if provider.lower() == "azure":
+            text = send_to_azure(img_str, page1.master.master.settings, feature=feature)
+        elif provider.lower() == "chatgpt":
+            # Use the variable_content as prompt for ChatGPT
+            prompt = variable_content if variable_content else "What's in this image?"
+            text = send_to_chatgpt(img_str, page1.master.master.settings, prompt=prompt)
+        else:
+            text = f"Unknown provider: {provider}"
+        
+        print(f"AI Result: {text}")
 
         if variable_name:
             # Eğer Variable Content alanını doğrudan kullanmak istiyorsan:
@@ -631,3 +724,4 @@ def execute_macro_logic_wrapper(action, page1, current_index, variables, previou
         print(f"Unexpected error in execute_macro_logic: {type(e).__name__}: {e}\nStack trace:\n{error_trace}")
         page1.running = False
         return current_index, previous_timestamp
+

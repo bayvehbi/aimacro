@@ -57,14 +57,28 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
     # Dropdown for selecting AI provider
     tk.Label(scrollable, text="Select AI Provider:").pack(pady=5)
     ai_provider_var = tk.StringVar(value="Azure")  # Default to Azure
-    ai_provider_dropdown = tk.OptionMenu(scrollable, ai_provider_var, "Azure")
+    ai_provider_dropdown = tk.OptionMenu(scrollable, ai_provider_var, "Azure", "ChatGPT")
     ai_provider_dropdown.pack(pady=5)
 
-    # Dropdown for selecting feature
-    tk.Label(scrollable, text="Select Feature:").pack(pady=5)
+    # Dropdown for selecting feature (Azure-specific)
+    feature_label = tk.Label(scrollable, text="Select Feature:")
+    feature_label.pack(pady=5)
     feature_var = tk.StringVar(value="ocr")  # Default to OCR
     feature_dropdown = tk.OptionMenu(scrollable, feature_var, "ocr", "describe", "analyze", "detect_faces", "object_detection", "landmark_recognition", "content_moderation", "read", "generate_thumbnail")
     feature_dropdown.pack(pady=5)
+
+    def on_provider_change(*args):
+        """Handle provider change - show/hide feature dropdown"""
+        provider = ai_provider_var.get()
+        if provider == "Azure":
+            feature_label.pack(pady=5, before=variable_message)
+            feature_dropdown.pack(pady=5, before=variable_message)
+        else:  # ChatGPT
+            feature_label.pack_forget()
+            feature_dropdown.pack_forget()
+
+    # Bind the provider change event
+    ai_provider_var.trace("w", on_provider_change)
 
     tk.Label(scrollable, text="Image AI content (prompt / expected text)").pack(pady=5)
     variable_message = tk.Entry(scrollable)
@@ -88,6 +102,12 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
             variable_entry.delete(0, tk.END); variable_entry.insert(0, iv["variable_name"] or "")
         if "variable_content" in iv:
             variable_message.delete(0, tk.END); variable_message.insert(0, iv["variable_content"] or "")
+        if "ai_provider" in iv:
+            ai_provider_var.set(iv["ai_provider"])
+            # Trigger the provider change to show/hide feature dropdown
+            on_provider_change()
+        if "feature" in iv:
+            feature_var.set(iv["feature"])
 
     def save_image_ai_event():
         try:
@@ -99,7 +119,7 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
         variable_name = variable_entry.get().strip()
         variable_content = variable_message.get()
         ai_provider = ai_provider_var.get()
-        feature = feature_var.get()
+        feature = feature_var.get() if ai_provider == "Azure" else "vision"
 
         if not variable_name:
             messagebox.showerror("Missing Variable Name", "Please provide a variable name before saving.")

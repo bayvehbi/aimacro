@@ -98,6 +98,8 @@ class DraggableTreeview(ttk.Treeview):
                     "wait_time": d.get("Wait", "5.0s").replace("s", ""),
                     "variable_name": d.get("Variable"),
                     "variable_content": d.get("Variable Content"),
+                    "ai_provider": d.get("Provider"),
+                    "feature": d.get("Feature"),
                     "item_id": item_idx  # Use item_id if not present
 
                 }
