@@ -1,53 +1,20 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 import json
-from page1 import Page1
+from aimacro.ui.pages.page1 import Page1
 import os
-from page2 import Page2
+from aimacro.ui.pages.page2 import Page2
 
-def load_api_settings():
-    """Load API settings from storage/settings.json."""
-    settings_file = os.path.join("storage", "settings.json")
-    default_settings = {
-        "start_macro_record_shortcut": "r",
-        "stop_macro_record_shortcut": "s",
-        "start_macro_run_shortcut": "p",
-        "stop_macro_run_shortcut": "q",
-        "chatgpt_api_key": "",
-        "grok_api_key": "",
-        "azure_api_key": "",  # Default Azure API key
-        "azure_endpoint": "",  # Default Azure endpoint
-        "azure_subscription_key": "",  # Default Azure subscription key
-    }
-
-    os.makedirs("storage", exist_ok=True)
-
-    try:
-        if os.path.exists(settings_file):
-            with open(settings_file, "r") as f:
-                settings = json.load(f)
-            # Ensure all keys exist (for backward compatibility)
-            for key, value in default_settings.items():
-                if key not in settings:
-                    settings[key] = value
-            with open(settings_file, "w") as f:
-                json.dump(settings, f, indent=4)
-            print(f"Settings loaded from {settings_file}: {settings}")
-            return settings
-        else:
-            with open(settings_file, "w") as f:
-                json.dump(default_settings, f, indent=4)
-            print(f"Default settings created at {settings_file}: {default_settings}")
-            return default_settings
-    except Exception as e:
-        print(f"Error loading settings: {e}, using default settings")
-        return default_settings
+from aimacro.config.settings import load_api_settings
+from aimacro.utils.logger import init_logger
 
 class MainApplication(tk.Tk):
     """Main application class for the macro automation tool."""
     def __init__(self):
         super().__init__()
         self.settings = load_api_settings()
+        # Initialize logger with verbose mode from settings
+        init_logger(verbose=self.settings.get("verbose_mode", False))
         self.title("Modular UI")
 
         # Set up the menu bar
@@ -104,7 +71,7 @@ class MainApplication(tk.Tk):
         """Show a dialog for editing shortcuts and API keys."""
         dialog = tk.Toplevel(self)
         dialog.title("Shortcut & API Settings")
-        dialog.geometry("400x350")
+        dialog.geometry("400x380")
         dialog.attributes("-topmost", True)
 
         entries = {}
@@ -131,9 +98,20 @@ class MainApplication(tk.Tk):
             entries[key] = entry
             row += 1
 
+        # Add verbose mode checkbox
+        verbose_var = tk.BooleanVar(value=self.settings.get("verbose_mode", False))
+        verbose_check = tk.Checkbutton(dialog, text="Verbose Mode (Enable debug logging)", variable=verbose_var)
+        verbose_check.grid(row=row, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        row += 1
+
         def save_and_close():
             for key, entry in entries.items():
                 self.settings[key] = entry.get().strip()
+            # Save verbose mode
+            self.settings["verbose_mode"] = verbose_var.get()
+            # Update logger
+            from aimacro.utils.logger import get_logger
+            get_logger().set_verbose(self.settings["verbose_mode"])
             with open(os.path.join("storage", "settings.json"), "w") as f:
                 json.dump(self.settings, f, indent=4)
             print("Settings saved.")
