@@ -3,4 +3,4 @@ pyautogui
 Pillow
 opencv-python-headless
 requests
-pytesseract
+easyocr

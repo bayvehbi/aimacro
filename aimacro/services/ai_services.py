@@ -241,7 +241,7 @@ def send_to_azure(image_base64, settings, feature="ocr", *, timeout=30, read_pol
 
 def send_to_local_ocr(image_base64, settings, timeout=30):
     """
-    Perform OCR on an image using local Tesseract OCR.
+    Perform OCR on an image using EasyOCR (local, no external binaries needed).
     
     Args:
       - image_base64: The base64-encoded string of the image.
@@ -253,18 +253,32 @@ def send_to_local_ocr(image_base64, settings, timeout=30):
       - On error: An error message string.
     """
     try:
-        import pytesseract
+        import easyocr
         from PIL import Image
         import base64
         from io import BytesIO
+        import numpy as np
         
         # Decode base64 image
         image_bytes = base64.b64decode(image_base64)
         image_buffer = BytesIO(image_bytes)
         image = Image.open(image_buffer)
         
-        # Perform OCR using pytesseract
-        text = pytesseract.image_to_string(image)
+        # Convert PIL Image to numpy array (EasyOCR requires numpy array)
+        image_array = np.array(image)
+        
+        # Initialize EasyOCR reader (lazy loading - models download on first use)
+        # Using English by default, can be extended to support other languages
+        # Set gpu=True if you have CUDA available for faster processing
+        reader = easyocr.Reader(['en'], gpu=False)
+        
+        # Perform OCR using EasyOCR
+        # EasyOCR returns list of (bbox, text, confidence)
+        results = reader.readtext(image_array)
+        
+        # Extract text from results
+        text_lines = [result[1] for result in results]  # result[1] is the text
+        text = '\n'.join(text_lines)
         
         # Clean up the text
         text = text.strip()
@@ -275,7 +289,7 @@ def send_to_local_ocr(image_base64, settings, timeout=30):
             return "Text not found"
             
     except ImportError:
-        return "pytesseract library not installed. Please install it with: pip install pytesseract"
+        return "easyocr library not installed. Please install it with: pip install easyocr"
     except Exception as e:
         return f"Local OCR error: {e}"
 

@@ -30,7 +30,7 @@ from .event_patterns import (
 )
 
 # Import services
-from ..services.ai_services import send_to_chatgpt, send_to_azure
+from ..services.ai_services import send_to_chatgpt, send_to_azure, send_to_local_ocr
 from ..services.notification_service import send_notification
 
 # Import utilities
@@ -216,6 +216,9 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             # Use the variable_content as prompt for ChatGPT
             prompt = variable_content if variable_content else "What's in this image?"
             text = send_to_chatgpt(img_str, page1.master.master.settings, prompt=prompt)
+        elif provider.lower() in ("local ocr", "local_ocr", "local"):
+            # Local OCR doesn't use feature or prompt, just extracts text
+            text = send_to_local_ocr(img_str, page1.master.master.settings)
         else:
             text = f"Unknown provider: {provider}"
         
