@@ -23,7 +23,6 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
     user_vars = list(variables.keys()) if isinstance(variables, dict) else list(variables or [])
     var_names = time_vars + user_vars
     variable_dropdown = ttk.Combobox(win, values=var_names or ["None"], state="readonly")
-    variable_dropdown.set((var_names or ["None"])[0])
     variable_dropdown.pack(pady=5)
 
     # Condition
@@ -94,8 +93,16 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
         vname = iv.get("variable") or iv.get("Variable")
         cond  = iv.get("condition") or iv.get("Condition")
         val   = iv.get("value") or iv.get("Value")
-        if vname and (vname in var_names or not var_names):
+        if vname:
+            # Always set the variable name, even if it's not in the list yet (e.g., created by Image AI)
+            if vname not in var_names:
+                # Add it to the list so it can be selected
+                var_names.append(vname)
+                variable_dropdown['values'] = var_names
             variable_dropdown.set(vname)
+        elif var_names:
+            # Only set default if not editing
+            variable_dropdown.set(var_names[0])
         if cond:
             condition_dropdown.set(cond)
         if val is not None:

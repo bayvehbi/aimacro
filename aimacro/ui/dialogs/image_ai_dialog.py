@@ -130,6 +130,17 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
             messagebox.showerror("Missing Area", "Please select an area first.")
             return
 
+        # Ensure a variable exists and is linked to this Image AI event
+        try:
+            page1 = parent  # parent passed to open_image_ai_window is Page1
+            if hasattr(page1, "variables"):
+                if variable_name not in page1.variables:
+                    page1.variables[variable_name] = ""
+                if hasattr(page1, "page2") and hasattr(page1.page2, "update_variables_list"):
+                    page1.page2.update_variables_list()
+        except Exception:
+            pass
+
         coords = win.image_ai_coords
         event = (f"Image AI - Provider: {ai_provider}, Feature: {feature}, Area: {coords}, "
                  f"Wait: {wait_time}s, "

@@ -294,18 +294,20 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         variable_name, condition, value, succeed_checkpoint, fail_checkpoint, wait_time, succeed_notification_name, fail_notification_name = if_match.groups()
         verbose(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Wait={wait_time}")
         now = datetime.datetime.now()
-        variables["time_hour"] = now.hour
-        variables["time_minute"] = now.minute
-        variables["time_second"] = now.second
-        variables["time_weekday"] = now.weekday()
-        variables["time_day"] = now.day
-        variables["time_month"] = now.month
-        variables["time_year"] = now.year
+        # Update time variables in page1.variables to ensure consistency
+        page1.variables["time_hour"] = now.hour
+        page1.variables["time_minute"] = now.minute
+        page1.variables["time_second"] = now.second
+        page1.variables["time_weekday"] = now.weekday()
+        page1.variables["time_day"] = now.day
+        page1.variables["time_month"] = now.month
+        page1.variables["time_year"] = now.year
         wait_time = float(wait_time)
-        variable_value = variables.get(variable_name)
+        # Always get variable from page1.variables directly to ensure we have the latest value
+        variable_value = page1.variables.get(variable_name)
         
         if variable_value is None:
-            verbose(f"Variable '{variable_name}' not found in variables: {variables}, skipping If condition.")
+            verbose(f"Variable '{variable_name}' not found in variables: {page1.variables}, skipping If condition.")
             return current_index + 1, current_timestamp
         verbose(f"variable_value: {variable_value} - value: {value}")
         condition_met = False
@@ -326,7 +328,10 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         elif condition == "!=":
             condition_met = str(variable_value) != str(value)
         elif condition == "Contains":
-            condition_met = str(value) in str(variable_value)
+            # Remove spaces and make case-insensitive for comparison
+            value_normalized = str(value).replace(" ", "").lower()
+            variable_normalized = str(variable_value).replace(" ", "").lower()
+            condition_met = value_normalized in variable_normalized
         elif condition == "%":
             try:
                 condition_met = int(variable_value) % int(value) == 0
