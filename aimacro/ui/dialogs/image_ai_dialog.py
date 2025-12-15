@@ -52,6 +52,10 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
         scrollable, text="Select Area",
         command=lambda: select_area(win, preview_label, "image_ai")
     ).pack(pady=5)
+    tk.Button(
+        scrollable, text="Recapture Area",
+        command=lambda: update_image_from_coords(win, win.image_ai_coords, preview_label, "image_ai") if hasattr(win, "image_ai_coords") and win.image_ai_coords else None
+    ).pack(pady=5)
     preview_label.pack(pady=5)
 
     # Dropdown for selecting AI provider
