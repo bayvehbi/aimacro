@@ -115,7 +115,6 @@ class DraggableTreeview(ttk.Treeview):
                     "fail_send": d.get("Fail Notification") not in (None, "", "None"),
                     "succeed_notification": d.get("Succeed Notification"),
                     "fail_notification": d.get("Fail Notification"),
-                    "wait_time": d.get("Wait", "5.0s").replace("s", ""),
                     "item_id": item_idx  # Use item_id if not present
                 }
 

@@ -290,8 +290,8 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     if_match = IF_PATTERN.match(action)
     if if_match:
         page1.dynamic_text.set(f"line: {current_index} - " + if_match.string)
-        variable_name, condition, value, succeed_checkpoint, fail_checkpoint, wait_time, succeed_notification_name, fail_notification_name = if_match.groups()
-        verbose(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}, Wait={wait_time}")
+        variable_name, condition, value, succeed_checkpoint, fail_checkpoint, succeed_notification_name, fail_notification_name = if_match.groups()
+        verbose(f"Parsed If event: Variable={variable_name}, Condition={condition}, Value={value}, Succeed Go To={succeed_checkpoint}, Fail Go To={fail_checkpoint}")
         now = datetime.datetime.now()
         # Update time variables in page1.variables to ensure consistency
         page1.variables["time_hour"] = now.hour
@@ -301,7 +301,6 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         page1.variables["time_day"] = now.day
         page1.variables["time_month"] = now.month
         page1.variables["time_year"] = now.year
-        wait_time = float(wait_time)
         # Always get variable from page1.variables directly to ensure we have the latest value
         variable_value = page1.variables.get(variable_name)
         

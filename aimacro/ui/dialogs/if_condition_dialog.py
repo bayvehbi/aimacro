@@ -76,10 +76,6 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
     fail_notification_dropdown.set("None")
     fail_notification_dropdown.grid(row=0, column=2, padx=5)
 
-    # Single wait time for both outcomes
-    tk.Label(win, text="Wait Time (seconds):").pack(pady=5)
-    wait_time_entry = tk.Entry(win); wait_time_entry.insert(0, "5"); wait_time_entry.pack(pady=5)
-
     def toggle_notification(mode):
         if mode == 'succeed':
             succeed_notification_dropdown.config(state="readonly" if succeed_send_var.get() else "disabled")
@@ -128,11 +124,6 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
         if fn: fail_notification_dropdown.set(fn)
         toggle_notification('succeed'); toggle_notification('fail')
 
-        # single wait time (support both 'Wait' and 'wait_time', strip trailing 's')
-        wt = iv.get("wait_time") or iv.get("Wait")
-        if wt is not None:
-            wait_time_entry.delete(0, tk.END); wait_time_entry.insert(0, str(wt).rstrip("s"))
-
     # ---- Save ----
     def save_if_event():
         try:
@@ -149,7 +140,6 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
             succeed_notification = succeed_notification_dropdown.get() or "None"
             fail_send = fail_send_var.get()
             fail_notification = fail_notification_dropdown.get() or "None"
-            wait_time = float(wait_time_entry.get())
 
             # Use only key:value pairs so your regex parser picks them up
             event = (
@@ -157,8 +147,7 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
                 f"Condition: {condition}, "
                 f"Value: {value}, "
                 f"Succeed Go To: {succeed_checkpoint}, "
-                f"Fail Go To: {fail_checkpoint}, "
-                f"Wait: {wait_time}s"
+                f"Fail Go To: {fail_checkpoint}"
             )
             if succeed_send and succeed_notification != "None":
                 event += f", Succeed Notification: {succeed_notification}"
@@ -170,8 +159,7 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
                 variable_name, condition, value,
                 succeed_checkpoint, fail_checkpoint,
                 str(succeed_send), succeed_notification,
-                str(fail_send), fail_notification,
-                str(wait_time)
+                str(fail_send), fail_notification
             )
 
             if item_id is not None:
@@ -182,8 +170,6 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
             print(f"{'Updated' if item_id is not None else 'Added'} If event: {event}")
             win.destroy()
 
-        except ValueError:
-            messagebox.showerror("Invalid Input", "Please enter a valid number for wait time.")
         except Exception as e:
             print(f"Error saving if event: {type(e).__name__}: {e}")
 
