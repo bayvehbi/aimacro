@@ -65,33 +65,53 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
     ai_provider_dropdown.pack(pady=5)
 
     # Dropdown for selecting feature (Azure-specific)
-    # Don't pack initially - will be shown/hidden based on provider
     feature_label = tk.Label(scrollable, text="Select Feature:")
     feature_var = tk.StringVar(value="ocr")  # Default to OCR
     feature_dropdown = tk.OptionMenu(scrollable, feature_var, "ocr", "describe", "analyze", "detect_faces", "object_detection", "landmark_recognition", "content_moderation", "read", "generate_thumbnail")
 
-    def on_provider_change(*args):
-        """Handle provider change - show/hide feature dropdown"""
+    # Prompt field
+    prompt_label = tk.Label(scrollable, text="Image AI content (prompt / expected text)")
+    variable_message = tk.Entry(scrollable)
+
+    # Variable entry (always visible, used as anchor point)
+    variable_name_label = tk.Label(scrollable, text="Output Variable Name:")
+    variable_entry = tk.Entry(scrollable)
+
+    def repack_all_elements():
+        """Repack all elements in the correct order based on provider"""
         provider = ai_provider_var.get()
+        
+        # Unpack everything first
+        feature_label.pack_forget()
+        feature_dropdown.pack_forget()
+        prompt_label.pack_forget()
+        variable_message.pack_forget()
+        
+        # Pack in correct order before variable_name_label
         if provider == "Azure":
-            feature_label.pack(pady=5, before=variable_message)
-            feature_dropdown.pack(pady=5, before=variable_message)
-        else:  # ChatGPT or Local OCR
-            feature_label.pack_forget()
-            feature_dropdown.pack_forget()
+            feature_label.pack(pady=5, before=variable_name_label)
+            feature_dropdown.pack(pady=5, before=variable_name_label)
+            prompt_label.pack(pady=5, before=variable_name_label)
+            variable_message.pack(pady=5, before=variable_name_label)
+        elif provider == "ChatGPT":
+            prompt_label.pack(pady=5, before=variable_name_label)
+            variable_message.pack(pady=5, before=variable_name_label)
+        # Local OCR: nothing to pack (prompt is hidden)
+
+    def on_provider_change(*args):
+        """Handle provider change"""
+        repack_all_elements()
+
+    # Pack variable entry (always visible)
+    variable_name_label.pack(pady=5)
+    variable_entry.pack(pady=5)
 
     # Bind the provider change event
     ai_provider_var.trace("w", on_provider_change)
     
-    # Set initial state based on default provider
-    on_provider_change()
+    # Set initial state
+    repack_all_elements()
 
-    tk.Label(scrollable, text="Image AI content (prompt / expected text)").pack(pady=5)
-    variable_message = tk.Entry(scrollable)
-    variable_message.pack(pady=5)
-
-    tk.Label(scrollable, text="Output Variable Name:").pack(pady=5)
-    variable_entry = tk.Entry(scrollable); variable_entry.pack(pady=5)
     # ---------------------------------------
 
     # ---- Populate for edit ----
