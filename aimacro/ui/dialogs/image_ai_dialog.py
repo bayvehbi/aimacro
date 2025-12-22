@@ -90,9 +90,6 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
     variable_message = tk.Entry(scrollable)
     variable_message.pack(pady=5)
 
-    tk.Label(scrollable, text="Wait Time (seconds):").pack(pady=5)
-    wait_time_entry = tk.Entry(scrollable); wait_time_entry.insert(0, "5"); wait_time_entry.pack(pady=5)
-
     tk.Label(scrollable, text="Output Variable Name:").pack(pady=5)
     variable_entry = tk.Entry(scrollable); variable_entry.pack(pady=5)
     # ---------------------------------------
@@ -102,8 +99,6 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
         parsed = parse_coords(iv.get("coords"))
         if parsed:
             update_image_from_coords(win, parsed, preview_label, "image_ai")
-        if "wait_time" in iv:
-            wait_time_entry.delete(0, tk.END); wait_time_entry.insert(0, str(iv["wait_time"]))
         if "variable_name" in iv:
             variable_entry.delete(0, tk.END); variable_entry.insert(0, iv["variable_name"] or "")
         if "variable_content" in iv:
@@ -116,22 +111,16 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
             feature_var.set(iv["feature"])
 
     def save_image_ai_event():
-        try:
-            wait_time = float(wait_time_entry.get())
-        except ValueError:
-            messagebox.showerror("Invalid Input", "Please enter a valid number for wait time.")
-            return
-
         variable_name = variable_entry.get().strip()
         variable_content = variable_message.get()
         ai_provider = ai_provider_var.get()
         feature = feature_var.get() if ai_provider == "Azure" else ("vision" if ai_provider == "ChatGPT" else "ocr")
 
         if not variable_name:
-            messagebox.showerror("Missing Variable Name", "Please provide a variable name before saving.")
+            messagebox.showerror("Missing Variable Name", "Please provide a variable name before saving.", parent=win)
             return
         if not hasattr(win, "image_ai_coords"):
-            messagebox.showerror("Missing Area", "Please select an area first.")
+            messagebox.showerror("Missing Area", "Please select an area first.", parent=win)
             return
 
         # Ensure a variable exists and is linked to this Image AI event
@@ -147,10 +136,9 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
 
         coords = win.image_ai_coords
         event = (f"Image AI - Provider: {ai_provider}, Feature: {feature}, Area: {coords}, "
-                 f"Wait: {wait_time}s, "
                  f"Variable: {variable_name}, "
                  f"Variable Content: {variable_content}")
-        values = (coords, wait_time, variable_name, variable_content, ai_provider, feature)
+        values = (coords, variable_name, variable_content, ai_provider, feature)
 
         if item_id is not None:
             coords_callback(event, item_id=item_id, values=values)

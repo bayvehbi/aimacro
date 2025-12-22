@@ -2,7 +2,7 @@
 from functools import partial
 import base64, io
 import tkinter as tk
-from tkinter import Toplevel, Label, Button, Entry, ttk, messagebox
+from tkinter import Toplevel, Label, Button, Entry, ttk
 from PIL import Image, ImageTk
 
 from aimacro.utils.image_utils import select_area, update_image_from_coords
@@ -37,12 +37,10 @@ def open_pattern_window(
         dropdown.config(state="readonly" if var.get() else "disabled")
 
     def on_copy_search_to_pattern():
-        if pattern_window.search_coords:
+        if copy_to_pattern.get() and pattern_window.search_coords:
             update_image_from_coords(pattern_window, pattern_window.search_coords, pattern_preview_label, "pattern")
             threshold_entry.delete(0, tk.END)
             threshold_entry.insert(0, "0.99")
-        else:
-            messagebox.showwarning("No Search Area", "Please select a search area first.", parent=pattern_window)
 
     def render_image(label, image_base64):
         try:
@@ -108,12 +106,9 @@ def open_pattern_window(
            command=lambda: update_image_from_coords(pattern_window, pattern_window.pattern_coords, pattern_preview_label, "pattern")).pack(pady=5)
     pattern_preview_label.pack(pady=5)
 
-    Button(scrollable_frame, text="Copy search to pattern",
-           command=on_copy_search_to_pattern).pack(pady=5)
-
-    make_change_detect = tk.BooleanVar()
-    tk.Checkbutton(scrollable_frame, text="Search change at area",
-                   variable=make_change_detect).pack(pady=5)
+    copy_to_pattern = tk.BooleanVar()
+    tk.Checkbutton(scrollable_frame, text="Copy search to pattern",
+                   variable=copy_to_pattern, command=on_copy_search_to_pattern).pack(pady=5)
 
     # derive checkpoints/notifications if not passed
     if checkpoints is None:
@@ -156,6 +151,10 @@ def open_pattern_window(
         values=["None"] + list(notifications), state="disabled")
     fail_notification_dropdown.set("None")
     fail_notification_dropdown.grid(row=0, column=2, padx=5)
+
+    make_change_detect = tk.BooleanVar()
+    tk.Checkbutton(scrollable_frame, text="Search change at area",
+                   variable=make_change_detect).pack(pady=5)
 
     click_var = tk.BooleanVar()
     tk.Checkbutton(scrollable_frame, text="Click if Found",

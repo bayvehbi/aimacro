@@ -186,7 +186,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     ocr_match = OCR_PATTERN.search(action)
     if ocr_match:
         page1.dynamic_text.set(f"line: {current_index} - " + ocr_match.string)
-        provider, feature, coords_str, wait_time_str, variable_name, variable_content = ocr_match.groups()
+        provider, feature, coords_str, variable_name, variable_content = ocr_match.groups()
 
         # Safe parse
         try:
@@ -195,7 +195,6 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             error(f"Area parse error: {e} -> coords_str={coords_str!r}")
             return current_index + 1, previous_timestamp
 
-        wait_time = float(wait_time_str)
         variable_content = (variable_content or "").strip()
 
         x1, y1 = coords['start']
@@ -234,8 +233,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             page1.page2.update_variables_list()
 
         if any(bad in str(text) for bad in ("Text not found", "API request failed", "JSON parsing error")):
-            error(f"OCR failed, waiting {wait_time} seconds before stopping...")
-            time.sleep(wait_time)
+            error(f"OCR failed, stopping macro...")
             page1.running = False
         else:
             verbose("OCR found text, continuing macro...")

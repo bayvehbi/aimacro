@@ -15,7 +15,6 @@ OCR_PATTERN = re.compile(
     r"Image AI - Provider:\s*(.+?),\s*"
     r"Feature:\s*(.+?),\s*"
     r"Area:\s*(\{.*?\}),\s*"
-    r"Wait:\s*(\d+(?:\.\d+)?)s,\s*"
     r"Variable:\s*(\w+),\s*"
     r"Variable Content:\s*(.*)",
     re.DOTALL
