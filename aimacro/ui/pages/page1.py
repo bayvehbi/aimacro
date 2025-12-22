@@ -72,6 +72,7 @@ class Page1(tk.Frame):
         self.checkpoint_icon = resize_icon_from_base64(images_base64["checkpoint.png"])
         self.pattern_icon = resize_icon_from_base64(images_base64["pattern.png"])
         self.wait_icon = resize_icon_from_base64(images_base64["wait.png"])
+        self.goto_icon = resize_icon_from_base64(images_base64.get("goto.png", images_base64["flat.png"]))
         self.flat_icon = resize_icon_from_base64(images_base64["flat.png"])
 
         self.run_button = ttk.Button(button_frame, image=self.run_icon, style="Custom.TButton", command=self.start_macro)
@@ -100,6 +101,9 @@ class Page1(tk.Frame):
 
         self.wait_button = ttk.Button(button_frame, image=self.wait_icon, style="Custom.TButton", command=self.open_wait_window_wrapper)
         self.wait_button.pack(side=tk.LEFT, padx=5)
+
+        self.goto_button = ttk.Button(button_frame, image=self.goto_icon, style="Custom.TButton", command=self.open_goto_window_wrapper)
+        self.goto_button.pack(side=tk.LEFT, padx=5)
 
         self.flat_button = ttk.Button(button_frame, image=self.flat_icon, style="Custom.TButton", command=self.flat_window_wrapper)
         self.flat_button.pack(side=tk.LEFT, padx=5)
@@ -262,6 +266,13 @@ class Page1(tk.Frame):
     def open_wait_window_wrapper(self):
         """Open the wait event window (duplicate method, kept for compatibility)."""
         open_wait_window(self, self.add_event_to_treeview)
+    
+    def open_goto_window_wrapper(self):
+        """Open the Go To event window."""
+        from ..dialogs.goto_dialog import open_goto_window
+        open_goto_window(self, self.add_event_to_treeview, 
+                       checkpoints=self.checkpoints, 
+                       treeview=self.left_treeview)
     
     def only_digits(self, value):
         """Returns only digits."""

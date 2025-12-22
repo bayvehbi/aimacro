@@ -27,6 +27,7 @@ from .event_patterns import (
     SEARCH_PATTERN,
     IF_PATTERN,
     WAIT_PATTERN,
+    GOTO_PATTERN,
 )
 
 # Import services
@@ -368,6 +369,39 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
     
         verbose(f"Wait completed after {wait_time} seconds.")
         return current_index + 1, current_timestamp
+
+    goto_match = GOTO_PATTERN.match(action)
+    if goto_match:
+        page1.dynamic_text.set(f"line: {current_index} - " + action)
+        goto_type, target, element_text = goto_match.groups()
+        
+        if goto_type == "Checkpoint":
+            checkpoint_name = target.strip()
+            next_index = page1.get_checkpoint_index(checkpoint_name)
+            if next_index is not None:
+                verbose(f"Jumping to checkpoint '{checkpoint_name}' at index: {next_index}")
+                return next_index, current_timestamp
+            else:
+                error(f"Checkpoint '{checkpoint_name}' not found, continuing to next event...")
+                return current_index + 1, current_timestamp
+        else:  # Line
+            try:
+                line_num = int(target.strip())
+                children = page1.left_treeview.get_children()
+                if 0 <= line_num < len(children):
+                    # Optional: Verify element hasn't changed
+                    if element_text:
+                        current_element = page1.left_treeview.item(children[line_num])["text"]
+                        if current_element != element_text:
+                            verbose(f"WARNING: Element at line {line_num} has changed from saved value")
+                    verbose(f"Jumping to line {line_num}")
+                    return line_num, current_timestamp
+                else:
+                    error(f"Line number {line_num} is out of range, continuing to next event...")
+                    return current_index + 1, current_timestamp
+            except ValueError:
+                error(f"Invalid line number '{target}', continuing to next event...")
+                return current_index + 1, current_timestamp
 
     checkpoint_match = action.startswith("Checkpoint: ")
     if checkpoint_match:

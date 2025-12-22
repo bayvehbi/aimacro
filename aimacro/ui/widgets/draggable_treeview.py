@@ -150,6 +150,29 @@ class DraggableTreeview(ttk.Treeview):
                 open_checkpoint_window(self.master, lambda *args, **kwargs: None)
             elif item_text.startswith("Wait"):
                 open_wait_window(self.master, lambda *args, **kwargs: None)
+            elif item_text.startswith("Go To"):
+                from ..dialogs.goto_dialog import open_goto_window
+                # Parse Go To event
+                goto_match = re.match(r"Go To - (Checkpoint|Line): (.+?)(?:, Element: (.+))?$", item_text)
+                if goto_match:
+                    goto_type, target, element_text = goto_match.groups()
+                    iv = {
+                        "goto_type": goto_type,
+                        "item_id": item_id
+                    }
+                    if goto_type == "Checkpoint":
+                        iv["checkpoint"] = target.strip()
+                    else:  # Line
+                        iv["line_number"] = int(target.strip())
+                        iv["element_text"] = element_text or ""
+                    
+                    open_goto_window(
+                        self.master.master,
+                        self.master.master.add_event_to_treeview,
+                        checkpoints=self.master.master.checkpoints,
+                        treeview=self.master.master.left_treeview,
+                        initial_values=iv
+                    )
 
 
         
