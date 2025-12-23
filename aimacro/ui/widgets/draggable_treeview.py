@@ -148,7 +148,19 @@ class DraggableTreeview(ttk.Treeview):
             elif item_text.startswith("Checkpoint"):
                 open_checkpoint_window(self.master, lambda *args, **kwargs: None)
             elif item_text.startswith("Wait"):
-                open_wait_window(self.master, lambda *args, **kwargs: None)
+                from aimacro.core.event_patterns import WAIT_PATTERN
+                wait_match = WAIT_PATTERN.match(item_text)
+                if wait_match:
+                    wait_time = wait_match.group(1)
+                    iv = {
+                        "wait_time": wait_time,
+                        "item_id": item_id
+                    }
+                    open_wait_window(
+                        self.master.master,
+                        self.master.master.add_event_to_treeview,
+                        initial_values=iv
+                    )
             elif item_text.startswith("Go To"):
                 from ..dialogs.goto_dialog import open_goto_window
                 # Parse Go To event
