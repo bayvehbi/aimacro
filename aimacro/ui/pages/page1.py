@@ -42,7 +42,7 @@ class Page1(tk.Frame):
             image = image.resize((12, 12), Image.LANCZOS)
             return ImageTk.PhotoImage(image)
         
-        """Set up the UI elements for Page1."""
+        """Set up the UI elements for Macros."""
         button_frame = tk.Frame(self, bg="#f0f0f0")
         button_frame.pack(side=tk.TOP, padx=10, pady=5, fill=tk.X)
 

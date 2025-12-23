@@ -15,7 +15,7 @@ class MainApplication(tk.Tk):
         self.settings = load_api_settings()
         # Initialize logger with verbose mode from settings
         init_logger(verbose=self.settings.get("verbose_mode", False))
-        self.title("Modular UI")
+        self.title("aimacro")
 
         # Set up the menu bar
         self.menu_bar = tk.Menu(self)
@@ -41,7 +41,7 @@ class MainApplication(tk.Tk):
 
         # Create and add Page1 to notebook
         self.page1 = Page1(self.notebook)
-        self.notebook.add(self.page1, text="Page 1")
+        self.notebook.add(self.page1, text="Macro Builder")
 
         # Create and add Page2 to notebook
         self.page2 = Page2(self.notebook, self.page1)
