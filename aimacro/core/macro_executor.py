@@ -233,7 +233,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             verbose(f"Current variables: {page1.variables}")
             page1.page2.update_variables_list()
 
-        if any(bad in str(text) for bad in ("Text not found", "API request failed", "JSON parsing error")):
+        if any(bad in str(text) for bad in ("API request failed", "JSON parsing error")):
             error(f"OCR failed, stopping macro...")
             page1.running = False
         else:
@@ -280,7 +280,9 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
                 if next_index is not None:
                     verbose(f"Jumping to checkpoint index: {next_index}")
                     return next_index, current_timestamp
-                verbose(f"Checkpoint '{target_checkpoint}' not found, continuing to next event...")
+                error(f"Checkpoint '{target_checkpoint}' not found, stopping macro...")
+                page1.running = False
+                return current_index, current_timestamp
             return current_index + 1, current_timestamp
 
         except ValueError as e:
@@ -352,7 +354,9 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
             if next_index is not None:
                 verbose(f"Jumping to checkpoint index: {next_index}")
                 return next_index, current_timestamp
-            verbose(f"Checkpoint '{target_checkpoint}' not found, continuing to next event...")
+            error(f"Checkpoint '{target_checkpoint}' not found, stopping macro...")
+            page1.running = False
+            return current_index, current_timestamp
         return current_index + 1, current_timestamp
 
     wait_match = WAIT_PATTERN.match(action)
@@ -381,8 +385,9 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
                 verbose(f"Jumping to checkpoint '{checkpoint_name}' at index: {next_index}")
                 return next_index, current_timestamp
             else:
-                error(f"Checkpoint '{checkpoint_name}' not found, continuing to next event...")
-                return current_index + 1, current_timestamp
+                error(f"Checkpoint '{checkpoint_name}' not found, stopping macro...")
+                page1.running = False
+                return current_index, current_timestamp
         else:  # Line
             try:
                 line_num = int(target.strip())
