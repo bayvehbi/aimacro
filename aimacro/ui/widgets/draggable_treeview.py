@@ -42,6 +42,7 @@ class DraggableTreeview(ttk.Treeview):
             self.clipboard_items = [self.item(i, "text") for i in selected]
             for i in selected:
                 self.delete(i)
+            self._rebuild_checkpoint_indices()
             print(f"Cut {len(self.clipboard_items)} items")
 
     def paste_items(self, event=None):
@@ -59,6 +60,8 @@ class DraggableTreeview(ttk.Treeview):
             self.insert("", insert_index, text=item_text)
             insert_index += 1
 
+        # Rebuild checkpoint indices after paste
+        self._rebuild_checkpoint_indices()
         print(f"Pasted {len(self.clipboard_items)} items")
 
 
@@ -273,14 +276,8 @@ class DraggableTreeview(ttk.Treeview):
             for item in items_to_move:
                 self.move(item, "", drop_index)
                 drop_index += 1
-            # Update checkpoint indices in Page1
-            if hasattr(self.master.master, 'checkpoints'):
-                for checkpoint_name in self.master.master.checkpoints:
-                    for i, child in enumerate(self.get_children()):
-                        if f"Checkpoint: {checkpoint_name}" in self.item(child, "text"):
-                            self.master.master.checkpoints[checkpoint_name] = i
-                            print(f"Updated checkpoint '{checkpoint_name}' to index {i}")
-                            break
+            # Rebuild checkpoint indices after reordering
+            self._rebuild_checkpoint_indices()
 
         elif isinstance(drop_target, DraggableTreeview) and drop_target.allow_drop and self in drop_target.accepted_sources:
             # Move to another treeview
@@ -295,6 +292,10 @@ class DraggableTreeview(ttk.Treeview):
                 self.delete(item)
                 new_item = drop_target.insert("", drop_index, text=text)
                 drop_index += 1
+            # Rebuild checkpoints in both treeviews after move
+            self._rebuild_checkpoint_indices()
+            if hasattr(drop_target.master.master, 'checkpoints'):
+                drop_target._rebuild_checkpoint_indices()
 
         self.cleanup()
 
@@ -305,8 +306,23 @@ class DraggableTreeview(ttk.Treeview):
             for item in selected_items:
                 self.delete(item)
                 print(f"Deleted item: {item}")
+            self._rebuild_checkpoint_indices()
         else:
             print("No items selected to delete")
+
+    def _rebuild_checkpoint_indices(self):
+        """Rebuild all checkpoint indices by scanning the treeview."""
+        if not hasattr(self.master.master, 'checkpoints'):
+            return
+        
+        # Clear and rebuild from scratch - simple and effective
+        self.master.master.checkpoints.clear()
+        for i, child in enumerate(self.get_children()):
+            child_text = self.item(child, "text")
+            if "Checkpoint: " in child_text:
+                checkpoint_name = child_text.split("Checkpoint: ")[1]
+                self.master.master.checkpoints[checkpoint_name] = i
+                print(f"Updated checkpoint '{checkpoint_name}' to index {i}")
 
     def cleanup(self):
         """Reset drag state and clear highlights."""

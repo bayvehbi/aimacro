@@ -146,10 +146,17 @@ class Page1(tk.Frame):
         treeview_frame.grid_columnconfigure(0, weight=1)
 
         # Remove empty rows at startup
+        empty_items = []
         for item in self.left_treeview.get_children():
             if not self.left_treeview.item(item, "text").strip():
+                empty_items.append(item)
+        
+        if empty_items:
+            for item in empty_items:
                 self.left_treeview.delete(item)
                 verbose(f"Empty row removed at startup: {item}")
+            if hasattr(self.left_treeview, '_rebuild_checkpoint_indices'):
+                self.left_treeview._rebuild_checkpoint_indices()
         # print("Initial Treeview content:", [self.left_treeview.item(child, "text") for child in self.left_treeview.get_children()])
 
     def start_macro(self):
@@ -220,15 +227,41 @@ class Page1(tk.Frame):
             return
 
         # Remove empty rows before inserting
+        empty_items = []
         for item in self.left_treeview.get_children():
             if not self.left_treeview.item(item, "text").strip():
+                empty_items.append(item)
+        
+        if empty_items:
+            for item in empty_items:
                 self.left_treeview.delete(item)
                 verbose(f"Empty row removed: {item}")
+            if hasattr(self.left_treeview, '_rebuild_checkpoint_indices'):
+                self.left_treeview._rebuild_checkpoint_indices()
 
         # Update existing item
         if item_id:
+            # Check if old item was a checkpoint and remove it
+            old_text = self.left_treeview.item(item_id, "text")
+            if "Checkpoint: " in old_text:
+                old_checkpoint_name = old_text.split("Checkpoint: ")[1]
+                if old_checkpoint_name in self.checkpoints:
+                    del self.checkpoints[old_checkpoint_name]
+                    verbose(f"Removed old checkpoint '{old_checkpoint_name}' from dictionary")
+            
             self.left_treeview.item(item_id, text=event, values=values or [])
             verbose(f"Updated Treeview item: {event}")
+            
+            # If new item is a checkpoint, add it
+            if "Checkpoint: " in event:
+                checkpoint_name = event.split("Checkpoint: ")[1]
+                self.checkpoints[checkpoint_name] = self.left_treeview.index(item_id)
+                verbose(f"Checkpoint '{checkpoint_name}' updated at index {self.checkpoints[checkpoint_name]}")
+            
+            # Rebuild all checkpoint indices to ensure accuracy
+            if hasattr(self.left_treeview, '_rebuild_checkpoint_indices'):
+                self.left_treeview._rebuild_checkpoint_indices()
+            
             return
 
         # Insert new item
