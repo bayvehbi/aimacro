@@ -3,6 +3,7 @@ Checkpoint dialog for adding checkpoint events to macros.
 """
 import tkinter as tk
 from tkinter import Toplevel, Entry, Label, Button
+from . import bind_enter_key
 
 
 def open_checkpoint_window(parent, coords_callback):
@@ -31,4 +32,5 @@ def open_checkpoint_window(parent, coords_callback):
         checkpoint_window.destroy()
 
     Button(checkpoint_window, text="OK", command=save_checkpoint).pack(pady=10)
+    bind_enter_key(checkpoint_window, save_checkpoint, name_entry)
 

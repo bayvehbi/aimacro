@@ -6,6 +6,7 @@ from tkinter import Toplevel, Label, Button, Entry, ttk
 from PIL import Image, ImageTk
 
 from aimacro.utils.image_utils import select_area, update_image_from_coords
+from . import bind_enter_key
 
 def open_pattern_window(
     parent,
@@ -278,4 +279,5 @@ def open_pattern_window(
             pattern_window.destroy()
 
     Button(scrollable_frame, text="OK", command=save_pattern_event).pack(pady=10)
+    bind_enter_key(pattern_window, save_pattern_event, wait_time_entry)
 

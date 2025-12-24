@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 import tkinter.messagebox as messagebox
+from . import bind_enter_key
 
 def open_if_window(parent, coords_callback, variables, initial_values=None):
     """Open the If condition window. Edit mode auto-detected from initial_values['item_id'/'item_number']."""
@@ -174,4 +175,5 @@ def open_if_window(parent, coords_callback, variables, initial_values=None):
             print(f"Error saving if event: {type(e).__name__}: {e}")
 
     tk.Button(win, text="OK", command=save_if_event).pack(pady=10)
+    bind_enter_key(win, save_if_event, value_entry)
 

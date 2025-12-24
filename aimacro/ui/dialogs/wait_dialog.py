@@ -3,6 +3,7 @@ Wait dialog for adding wait events to macros.
 """
 import tkinter as tk
 from tkinter import Toplevel, Entry, Label, Button
+from . import bind_enter_key
 
 
 def open_wait_window(parent, coords_callback, initial_values=None):
@@ -56,4 +57,5 @@ def open_wait_window(parent, coords_callback, initial_values=None):
             print("Invalid wait time, please enter a number.")
 
     tk.Button(wait_window, text="OK", command=save_wait_event).pack(pady=10)
+    bind_enter_key(wait_window, save_wait_event, wait_time_entry)
 

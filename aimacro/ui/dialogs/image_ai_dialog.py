@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import Toplevel
 import tkinter.messagebox as messagebox
 from aimacro.utils.image_utils import select_area, parse_coords, update_image_from_coords
+from . import bind_enter_key
 
 def open_image_ai_window(parent, coords_callback, variables=None, initial_values=None):
     """Open Image AI window. Edit mode auto-detected from initial_values['item_id'/'item_number'].""" 
@@ -169,4 +170,5 @@ def open_image_ai_window(parent, coords_callback, variables=None, initial_values
         win.destroy()
 
     tk.Button(scrollable, text="OK", command=save_image_ai_event).pack(pady=10)
+    bind_enter_key(win, save_image_ai_event, variable_entry)
 

@@ -4,6 +4,7 @@ Go To dialog for adding jump events to macros.
 import tkinter as tk
 from tkinter import Toplevel, Entry, Label, Button, ttk, messagebox
 import re
+from . import bind_enter_key
 
 
 def open_goto_window(parent, coords_callback, checkpoints=None, treeview=None, initial_values=None):
@@ -157,4 +158,12 @@ def open_goto_window(parent, coords_callback, checkpoints=None, treeview=None, i
 
     ok_button.config(command=save_goto_event)
     update_ui()
+    
+    # Bind Enter key and set focus
+    def set_focus():
+        widget = line_entry if goto_type_var.get() == "Line" else checkpoint_dropdown
+        widget.focus_set()
+    bind_enter_key(goto_window, save_goto_event, line_entry if goto_type_var.get() == "Line" else checkpoint_dropdown)
+    # Update focus when type changes
+    goto_type_var.trace("w", lambda *args: set_focus())
 
