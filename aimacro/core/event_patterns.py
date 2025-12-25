@@ -22,5 +22,5 @@ OCR_PATTERN = re.compile(
 SEARCH_PATTERN = re.compile(r"Search Pattern - Image: (.+?), Search Area: (.+?), Succeed Go To: (.+?), Fail Go To: (.+?), Click: (True|False), Wait: (\d+\.\d+)s, Threshold: (\d+\.\d+), Scene Change: (True|False)(?:, Succeed Notification: ([\w-]+))?(?:, Fail Notification: ([\w-]+))?")
 IF_PATTERN = re.compile(r"If - Variable:\s*(\w+),\s*Condition:\s*([><=!%]+|Contains),\s*Value:\s*(.+?),\s*Succeed Go To:\s*(.+?),\s*Fail Go To:\s*(.+?)(?:,\s*Succeed Notification:\s*([\w-]+))?(?:,\s*Fail Notification:\s*([\w-]+))?")
 WAIT_PATTERN = re.compile(r"Wait: (\d+\.\d+)s")
-GOTO_PATTERN = re.compile(r"Go To - (Checkpoint|Line): (.+?)(?:, Element: (.+))?$")
+GOTO_PATTERN = re.compile(r"Go To - (Target|Line): (.+?)(?:, Element: (.+))?$")
 

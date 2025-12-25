@@ -127,7 +127,7 @@ def open_goto_window(parent, coords_callback, checkpoints=None, treeview=None, i
             if not checkpoint_name:
                 messagebox.showerror("Error", "Please select a checkpoint.", parent=goto_window)
                 return
-            event = f"Go To - Checkpoint: {checkpoint_name}"
+            event = f"Go To - Target: {checkpoint_name}"
             values = (goto_type, checkpoint_name, None, None)
         else:  # Line
             try:

@@ -378,7 +378,7 @@ def execute_macro_logic(action, page1, current_index, variables, previous_timest
         page1.dynamic_text.set(f"line: {current_index} - " + action)
         goto_type, target, element_text = goto_match.groups()
         
-        if goto_type == "Checkpoint":
+        if goto_type == "Target":
             checkpoint_name = target.strip()
             next_index = page1.get_checkpoint_index(checkpoint_name)
             if next_index is not None:

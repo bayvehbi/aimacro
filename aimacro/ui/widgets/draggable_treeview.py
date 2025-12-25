@@ -167,7 +167,7 @@ class DraggableTreeview(ttk.Treeview):
             elif item_text.startswith("Go To"):
                 from ..dialogs.goto_dialog import open_goto_window
                 # Parse Go To event
-                goto_match = re.match(r"Go To - (Checkpoint|Line): (.+?)(?:, Element: (.+))?$", item_text)
+                goto_match = re.match(r"Go To - (Target|Line): (.+?)(?:, Element: (.+))?$", item_text)
                 if goto_match:
                     goto_type, target, element_text = goto_match.groups()
                     iv = {
@@ -319,8 +319,11 @@ class DraggableTreeview(ttk.Treeview):
         self.master.master.checkpoints.clear()
         for i, child in enumerate(self.get_children()):
             child_text = self.item(child, "text")
-            if "Checkpoint: " in child_text:
-                checkpoint_name = child_text.split("Checkpoint: ")[1]
+            # Extract action part (after timestamp if present)
+            action = child_text.split(" - ", 1)[-1] if " - " in child_text else child_text
+            # Only match actual checkpoint markers
+            if action.strip().startswith("Checkpoint: "):
+                checkpoint_name = action.split("Checkpoint: ", 1)[1].strip()
                 self.master.master.checkpoints[checkpoint_name] = i
                 print(f"Updated checkpoint '{checkpoint_name}' to index {i}")
 
