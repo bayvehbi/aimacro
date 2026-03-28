@@ -15,6 +15,7 @@ class MacroRecorder:
         self.mouse_listener = None
         self.start_time = None
         self.last_mouse_move_time = 0
+        self._ignore_keys = set()
 
     def start_recording(self):
         """Start recording mouse and keyboard events."""
@@ -22,6 +23,8 @@ class MacroRecorder:
             self.page1.recording = True
             self.start_time = time.time()
             self.last_mouse_move_time = self.start_time
+            # Ignore keys that are already held down (e.g. the shortcut that triggered recording)
+            self._ignore_keys = set(self.page1.shortcut_handler.pressed_keys)
             self.keyboard_listener = pynput_keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
             self.keyboard_listener.start()
             self.mouse_listener = pynput_mouse.Listener(
@@ -86,6 +89,8 @@ class MacroRecorder:
 
     def on_key_press(self, key):
         """Handle key press events during recording."""
+        if key in self._ignore_keys:
+            return
         if self.page1.recording:
             current_time = time.time()
             elapsed_time = current_time - self.start_time
@@ -98,6 +103,9 @@ class MacroRecorder:
 
     def on_key_release(self, key):
         """Handle key release events during recording."""
+        if key in self._ignore_keys:
+            self._ignore_keys.discard(key)
+            return
         if self.page1.recording:
             current_time = time.time()
             elapsed_time = current_time - self.start_time
@@ -155,12 +163,30 @@ class ShortcutHandler:
             self.pressed_keys.add(key)
 
             key_char = getattr(key, 'char', None)
+            key_name = getattr(key, 'name', None)
 
-            if not key_char:
+            if not key_char and not key_name:
                 return
 
-            # Normalize input key
-            pressed = key_char.lower().strip()
+            # Detect if Ctrl is held
+            ctrl_held = any(k in self.pressed_keys for k in (
+                pynput_keyboard.Key.ctrl,
+                pynput_keyboard.Key.ctrl_l,
+                pynput_keyboard.Key.ctrl_r,
+            ))
+
+            if key_char:
+                # Normalize input key; control characters (ord < 32) map to their letter
+                if ctrl_held and ord(key_char) < 32:
+                    actual_char = chr(ord(key_char) + 96)
+                    pressed = f"ctrl+{actual_char}"
+                elif ctrl_held:
+                    pressed = f"ctrl+{key_char.lower().strip()}"
+                else:
+                    pressed = key_char.lower().strip()
+            else:
+                # Special key (Home, End, Page Up, Page Down, F-keys, arrows, etc.)
+                pressed = f"ctrl+{key_name}" if ctrl_held else key_name
 
             # Fetch normalized shortcut keys from page1
             shortcuts = {

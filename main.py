@@ -71,11 +71,18 @@ class MainApplication(tk.Tk):
         """Show a dialog for editing shortcuts and API keys."""
         dialog = tk.Toplevel(self)
         dialog.title("Shortcut & API Settings")
-        dialog.geometry("400x380")
+        dialog.geometry("500x380")
         dialog.attributes("-topmost", True)
 
         entries = {}
         row = 0
+
+        shortcut_keys = {
+            "start_macro_record_shortcut",
+            "stop_macro_record_shortcut",
+            "start_macro_run_shortcut",
+            "stop_macro_run_shortcut",
+        }
 
         settings_keys = [
             ("start_macro_record_shortcut", "Start Macro Record Shortcut"),
@@ -89,13 +96,69 @@ class MainApplication(tk.Tk):
             ("azure_subscription_key", "Azure Subscription Key"),  # Added Azure Subscription Key setting
         ]
 
+        # Map tkinter keysyms to pynput key names for special keys
+        KEYSYM_TO_PYNPUT = {
+            "prior": "page_up",
+            "next": "page_down",
+            "home": "home",
+            "end": "end",
+            "insert": "insert",
+            "delete": "delete",
+            "up": "up",
+            "down": "down",
+            "left": "left",
+            "right": "right",
+            "return": "enter",
+            "escape": "esc",
+            "tab": "tab",
+            "backspace": "backspace",
+            "space": "space",
+            "f1": "f1", "f2": "f2", "f3": "f3", "f4": "f4",
+            "f5": "f5", "f6": "f6", "f7": "f7", "f8": "f8",
+            "f9": "f9", "f10": "f10", "f11": "f11", "f12": "f12",
+        }
+
+        capturing = [False]
+
+        def start_capture(entry, btn):
+            if capturing[0]:
+                return
+            capturing[0] = True
+            btn.config(text="Press key...")
+            dialog.focus_set()
+
+            def on_key(event):
+                # Ignore standalone modifier key presses
+                if event.keysym in ('Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Shift_L', 'Shift_R', 'Super_L', 'Super_R'):
+                    return
+                dialog.unbind("<KeyPress>")
+                capturing[0] = False
+                ctrl = bool(event.state & 0x4)
+                sym = event.keysym.lower()
+                if event.char and event.char.isprintable() and len(event.char) == 1:
+                    char = event.char
+                else:
+                    char = KEYSYM_TO_PYNPUT.get(sym, sym)
+                shortcut = f"ctrl+{char}" if ctrl else char
+                entry.delete(0, tk.END)
+                entry.insert(0, shortcut)
+                btn.config(text="Capture")
+
+            dialog.bind("<KeyPress>", on_key)
+
         for key, label in settings_keys:
             tk.Label(dialog, text=label + ":").grid(row=row, column=0, sticky="e", padx=5, pady=5)
 
-            entry = tk.Entry(dialog, width=30, show="")
+            entry = tk.Entry(dialog, width=25, show="")
             entry.insert(0, self.settings.get(key, ""))
             entry.grid(row=row, column=1, padx=5, pady=5)
             entries[key] = entry
+
+            if key in shortcut_keys:
+                btn = tk.Button(dialog, text="Capture", width=10)
+                btn.grid(row=row, column=2, padx=5, pady=5)
+                btn.config(command=lambda e=entry, b=btn: start_capture(e, b))
+
             row += 1
 
         # Add verbose mode checkbox
@@ -114,6 +177,11 @@ class MainApplication(tk.Tk):
             get_logger().set_verbose(self.settings["verbose_mode"])
             with open(os.path.join("storage", "settings.json"), "w") as f:
                 json.dump(self.settings, f, indent=4)
+            # Apply shortcut keys immediately to page1
+            self.page1.start_recording_key = self.settings.get("start_macro_record_shortcut", "r")
+            self.page1.stop_recording_key = self.settings.get("stop_macro_record_shortcut", "s")
+            self.page1.start_macro_key = self.settings.get("start_macro_run_shortcut", "p")
+            self.page1.stop_macro_key = self.settings.get("stop_macro_run_shortcut", "q")
             print("Settings saved.")
             dialog.destroy()
 
